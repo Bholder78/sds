@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fill Out a Secondary Label — Fibertech</title>
+<style>
+ *{box-sizing:border-box}
+ body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#eef1f6;color:#1d2330}
+ header{background:#1F3864;color:#fff;padding:14px 22px}
+ header h1{margin:0;font-size:20px}
+ header a{color:#cfe0ff;font-size:13px;margin-right:14px}
+ .wrap{max-width:760px;margin:0 auto;padding:16px 22px;text-align:center}
+ .tip{font-size:13px;color:#555;margin:0 0 10px;text-align:left}
+ .pickwrap{position:relative;text-align:left;margin-bottom:12px}
+ #pick{width:100%;font-size:16px;padding:11px 14px;border:2px solid #2E5496;border-radius:8px;outline:none}
+ #sug{position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid #b9c4d6;border-top:none;
+      border-radius:0 0 8px 8px;max-height:260px;overflow-y:auto;z-index:10;display:none;text-align:left}
+ #sug div{padding:9px 13px;cursor:pointer;font-size:14px;border-top:1px solid #eef1f6}
+ #sug div:hover{background:#eaf3ff}
+ #sug .cas{color:#889;font-size:12px}
+ .bar{margin:6px 0 12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+ .bar button{background:#2E5496;color:#fff;border:none;font-weight:700;font-size:13px;padding:9px 15px;border-radius:7px;cursor:pointer}
+ .bar button.green{background:#0a7d33}
+ .frame{position:relative;display:inline-block;width:480px;max-width:100%;border:1px solid #c7d0df;border-radius:6px;background:#fff}
+ .frame img{width:100%;display:block}
+ .fld{position:absolute}
+ .txt{transform:translateY(-50%);font:bold 13px Arial;border:1px solid #5b8def;background:rgba(255,255,255,.92);padding:1px 3px;border-radius:3px}
+ .area{font:11px Arial;border:1px solid #5b8def;background:rgba(255,255,255,.92);resize:none;padding:2px;border-radius:3px}
+ .num{transform:translate(-50%,-50%);width:30px;text-align:center;font:bold 15px Arial;border:1px solid #5b8def;background:rgba(255,255,255,.92);border-radius:3px}
+ .chk{transform:translate(-50%,-50%);width:17px;height:17px;cursor:pointer}
+ .pic{position:absolute;transform:translate(-50%,-50%);width:12%;height:8.5%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+ .pic .px{display:none;color:#d00000;font-size:30px;font-weight:bold;line-height:1}
+ .pic.on .px{display:block}
+ .note{font-size:12px;color:#7a5b00;background:#fff7e0;border:1px solid #f0d68a;border-radius:8px;padding:8px 12px;margin-top:14px}
+ @media print{
+   header,.tip,.bar,.note,.pickwrap{display:none!important}
+   body{background:#fff}
+   .wrap{padding:0;max-width:none}
+   .frame{border:none;width:100%}
+   .txt,.area,.num{border:none;background:transparent}
+   .chk{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ }
+</style>
+</head>
+<body>
+<header><h1>📝 Fill Out a Secondary Label</h1>
+<a href="index.html">← SDS Lookup</a><a href="guide.html">What goes on it ▸</a></header>
+<div class="wrap">
+ <p class="tip"><b>Fastest way:</b> search your chemical below and every box fills in from its SDS automatically.
+   You can still edit anything by hand. Click a GHS pictogram to cross out the ones that do <b>not</b> apply,
+   then print — or fill it in on screen as a guide while you hand-write the container label.</p>
+ <div class="pickwrap">
+   <input id="pick" placeholder="🔍 Search chemical to auto-fill (product, CAS #, manufacturer)…" autocomplete="off">
+   <div id="sug"></div>
+ </div>
+ <div class="bar">
+   <button class="green" onclick="window.print()">🖨 Print label</button>
+   <button onclick="clr()">Clear all fields</button>
+ </div>
+ <div class="frame" id="frame">
+   <img src="assets/secondary_sticker.png" alt="Secondary label template">
+ </div>
+ <p class="note">Auto-filled values come from the SDS on file — verify against the full sheet before use. Not for shipping.</p>
+</div>
+
+<script src="data/sds_data.js"></script>
+<script>
+(function(){
+  var DATA=(window.SDS_DATA||[]).filter(function(r){return (r["Status / Notes"]||"").indexOf("ARCHIVED")!==0;});
+  var POS={
+    SIG:{DANGER:[89,9.5],WARNING:[89,15.5]},
+    NF:{H:[64,37.5],F:[75,28],R:[86.5,37.5],S:[75,47]},
+    HM:{H:[91.5,59],F:[91.5,65],R:[91.5,71],P:[91.5,76.5]},
+    PPE:[["Safety Glasses",6.5,84.7],["Splash Goggles",6.5,88.7],["Face Shield",6.5,92.7],["Other",6.5,96.3],
+         ["Dust Respirator",37,84.7],["Vapor Respirator",37,88.7],["Gloves",37,92.7],
+         ["Apron",68,84.7],["Full Body Suit",68,88.7],["Boots",68,92.7]],
+    PIC:[["GHS09",30,13],["GHS04",17,22],["GHS05",42,22],["GHS01",9,33],["GHS02",30,33],
+         ["GHS03",50,33],["GHS06",18,42],["GHS07",39,43],["GHS08",30,50]]
+  };
+  var frame=document.getElementById("frame"), F={sig:{},nf:{},hm:{},ppe:{},pic:{}};
+
+  function el(tag,cls,style,attrs){
+    var e=document.createElement(tag); e.className=cls; e.setAttribute("style",style);
+    for(var k in (attrs||{})) e.setAttribute(k,attrs[k]);
+    return e;
+  }
+  F.name=el("input","fld txt","left:27%;top:4.7%;width:30%",{placeholder:"Product name"});
+  F.date=el("input","fld txt","left:71%;top:4.7%;width:26%",{placeholder:"Date"});
+  frame.appendChild(F.name); frame.appendChild(F.date);
+  Object.keys(POS.SIG).forEach(function(n){var p=POS.SIG[n];
+    F.sig[n]=el("input","fld chk","left:"+p[0]+"%;top:"+p[1]+"%",{type:"checkbox",title:n});
+    frame.appendChild(F.sig[n]);});
+  Object.keys(POS.NF).forEach(function(k){var p=POS.NF[k];
+    F.nf[k]=el("input","fld num","left:"+p[0]+"%;top:"+p[1]+"%",{maxlength:"2",title:"NFPA "+k});
+    frame.appendChild(F.nf[k]);});
+  Object.keys(POS.HM).forEach(function(k){var p=POS.HM[k];
+    F.hm[k]=el("input","fld num","left:"+p[0]+"%;top:"+p[1]+"%",{maxlength:"2",title:"HMIS "+k});
+    frame.appendChild(F.hm[k]);});
+  F.info=el("textarea","fld area","left:4.5%;top:59%;width:44%;height:18%",{placeholder:"Hazard / precautionary statements"});
+  frame.appendChild(F.info);
+  POS.PPE.forEach(function(t){
+    F.ppe[t[0]]=el("input","fld chk","left:"+t[1]+"%;top:"+t[2]+"%",{type:"checkbox",title:t[0]});
+    frame.appendChild(F.ppe[t[0]]);});
+  POS.PIC.forEach(function(t){
+    var s=el("span","pic","left:"+t[1]+"%;top:"+t[2]+"%",{title:"click to cross out if it does not apply"});
+    s.innerHTML='<span class="px">✕</span>';
+    s.onclick=function(){s.classList.toggle("on");};
+    F.pic[t[0]]=s; frame.appendChild(s);});
+
+  window.clr=function(){
+    F.name.value=""; F.date.value=""; F.info.value="";
+    Object.keys(F.sig).forEach(function(k){F.sig[k].checked=false;});
+    Object.keys(F.nf).forEach(function(k){F.nf[k].value="";});
+    Object.keys(F.hm).forEach(function(k){F.hm[k].value="";});
+    Object.keys(F.ppe).forEach(function(k){F.ppe[k].checked=false;});
+    Object.keys(F.pic).forEach(function(k){F.pic[k].classList.remove("on");});
+  };
+
+  function fillFrom(d){
+    clr();
+    F.name.value=d["Product Name"]||d["File"]||"";
+    F.date.value=new Date().toLocaleDateString();
+    var sw=String(d["Signal Word"]||"").toUpperCase();
+    if(F.sig[sw]) F.sig[sw].checked=true;
+    var nf=String(d["NFPA (H/F/R/Sp)"]||"").match(/H\s*(\d)[^]*?F\s*(\d)[^]*?R\s*(\d)(?:[^]*?\/\s*([A-Z]+))?/);
+    if(nf){F.nf.H.value=nf[1];F.nf.F.value=nf[2];F.nf.R.value=nf[3];if(nf[4])F.nf.S.value=nf[4];}
+    var hm=String(d["HMIS (H/F/R/PPE)"]||"").match(/H\s*(\d)[^]*?F\s*(\d)[^]*?R\s*(\d)(?:[^]*?PPE\s*([A-KX]))?/);
+    if(hm){F.hm.H.value=hm[1];F.hm.F.value=hm[2];F.hm.R.value=hm[3];if(hm[4])F.hm.P.value=hm[4];}
+    var info=[];
+    String(d["Hazard Statements"]||"").split(/\n/).filter(Boolean).forEach(function(x){info.push(x.replace(/^H\d{3}\s*/,""));});
+    String(d["Precautionary Statements"]||"").split(/\n/).filter(Boolean).forEach(function(x){info.push(x.replace(/^P[\d+ ]+/,""));});
+    F.info.value=info.join(" ");
+    var req=String(d["Required PPE"]||"").toLowerCase();
+    function chk(n){if(F.ppe[n])F.ppe[n].checked=true;}
+    if(/glass|goggle/.test(req))chk("Safety Glasses");
+    if(/goggle|splash/.test(req))chk("Splash Goggles");
+    if(/face shield/.test(req))chk("Face Shield");
+    if(/glove/.test(req))chk("Gloves");
+    if(/dust/.test(req))chk("Dust Respirator");
+    if(/respirator|vapou?r/.test(req)&&!/dust/.test(req))chk("Vapor Respirator");
+    if(/apron|protective clothing|coverall/.test(req))chk("Apron");
+    if(/full body|suit/.test(req))chk("Full Body Suit");
+    if(/boot/.test(req))chk("Boots");
+    var present={};
+    String(d["Pictograms"]||"").split(",").forEach(function(p){var m=p.match(/\((GHS0\d)\)/);if(m)present[m[1]]=1;});
+    Object.keys(F.pic).forEach(function(c){if(!present[c])F.pic[c].classList.add("on");});
+  }
+
+  /* searchable picker */
+  var pick=document.getElementById("pick"), sug=document.getElementById("sug");
+  function esc(s){return String(s||"").replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+  function suggest(){
+    var q=pick.value.trim().toLowerCase();
+    if(!q){sug.style.display="none";return;}
+    var hits=DATA.filter(function(r){
+      var hay=[r["Product Name"],r["Official / Chemical Name"],r["Synonyms / Common Names"],
+               r["Manufacturer"],r["CAS #"]].join(" | ").toLowerCase();
+      return q.split(/\s+/).every(function(w){return hay.indexOf(w)>=0;});
+    }).slice(0,8);
+    sug.innerHTML=hits.map(function(r,ix){
+      return '<div data-f="'+esc(r["File"])+'">'+esc(r["Product Name"]||r["File"])+
+        ' <span class="cas">'+esc([r["Manufacturer"],r["CAS #"]?"CAS "+r["CAS #"]:""].filter(Boolean).join(" · "))+'</span></div>';
+    }).join("")||'<div style="color:#889">No match</div>';
+    sug.style.display="block";
+    Array.prototype.forEach.call(sug.children,function(c){
+      c.onclick=function(){
+        var f=c.getAttribute("data-f"); if(!f) return;
+        var d=DATA.filter(function(r){return r["File"]===f;})[0];
+        if(d){fillFrom(d); pick.value=d["Product Name"]||f; sug.style.display="none";}
+      };
+    });
+  }
+  pick.addEventListener("input",suggest);
+  document.addEventListener("click",function(e){ if(!sug.contains(e.target)&&e.target!==pick) sug.style.display="none"; });
+
+  /* deep link: fill.html?c=Product Name */
+  var m=location.search.match(/[?&]c=([^&]+)/);
+  if(m){
+    var want=decodeURIComponent(m[1].replace(/\+/g," ")).toLowerCase();
+    var d=DATA.filter(function(r){return String(r["Product Name"]||r["File"]).toLowerCase()===want;})[0];
+    if(d){fillFrom(d); pick.value=d["Product Name"]||"";}
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secondary Label Guide — Fibertech</title>
+<style>
+ *{box-sizing:border-box}
+ body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#eef1f6;color:#1d2330}
+ header{background:#1F3864;color:#fff;padding:14px 22px}
+ header h1{margin:0;font-size:20px}
+ header a{color:#cfe0ff;font-size:13px;margin-right:14px}
+ .wrap{max-width:820px;margin:0 auto;padding:16px 22px 60px}
+ .card{background:#fff;border:1px solid #d7dee9;border-radius:10px;padding:16px 20px;margin:14px 0}
+ h2{font-size:17px;color:#1F3864;margin:0 0 8px}
+ p,li{font-size:14.5px;line-height:1.55}
+ .step{display:flex;gap:14px;margin:14px 0;align-items:flex-start}
+ .n{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:#2E5496;color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:16px}
+ .step b{display:block;margin-bottom:2px}
+ .pics{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0}
+ .pic{width:88px;text-align:center;font-size:11px;color:#444}
+ .pic svg{width:64px;height:64px}
+ img.tmpl{width:100%;max-width:480px;display:block;margin:10px auto;border:1px solid #c7d0df;border-radius:6px}
+ .callout{background:#fff7e0;border:1px solid #f0d68a;color:#7a5b00;border-radius:8px;padding:10px 14px;font-size:13.5px}
+ .good{background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;border-radius:8px;padding:10px 14px;font-size:13.5px}
+ .btn{display:inline-block;background:#0a7d33;color:#fff;text-decoration:none;padding:11px 17px;border-radius:8px;font-weight:700;font-size:14.5px}
+</style>
+</head>
+<body>
+<header><h1>🏷 What Goes on a Secondary Container Label</h1>
+<a href="index.html">← SDS Lookup</a><a href="fill.html">Fill one out ▸</a></header>
+<div class="wrap">
+
+ <div class="card">
+  <h2>When do you need one?</h2>
+  <p>Any time a chemical is transferred out of its original container — a spray bottle, a bucket,
+     a squeeze bottle, a small mixing can — the new container needs a label, <b>unless</b> the same
+     person who filled it uses it all within their own shift and it never leaves their control.</p>
+  <div class="callout">⚠ An unlabeled spray bottle is one of the most common citations in a plant
+     inspection — and the most dangerous thing in the shop when someone finds it a week later.</div>
+ </div>
+
+ <div class="card">
+  <h2>The 2 things OSHA requires (HazCom 1910.1200(f)(6))</h2>
+  <div class="step"><div class="n">1</div><div><b>Product identifier</b>
+    The name exactly as it appears on the SDS and the original container — so anyone can match
+    the bottle to the right sheet. Write it big.</div></div>
+  <div class="step"><div class="n">2</div><div><b>Hazard information</b>
+    Words, pictures, symbols or a combination that tell the user what can hurt them —
+    signal word, GHS pictograms, hazard statements, or NFPA/HMIS ratings all count.
+    Our template covers all of these, so a filled-out sticker is always compliant.</div></div>
+ </div>
+
+ <div class="card">
+  <h2>Filling out our sticker, step by step</h2>
+  <img class="tmpl" src="assets/secondary_sticker.png" alt="Blank secondary label template">
+  <div class="step"><div class="n">1</div><div><b>Product name & date</b>
+    Top of the label. Use the exact SDS name and today's date.</div></div>
+  <div class="step"><div class="n">2</div><div><b>Cross out pictograms that do NOT apply</b>
+    The sticker shows all nine GHS diamonds — put a big ✕ through every one that is not on
+    the chemical's SDS, so only the real hazards remain.</div></div>
+  <div class="step"><div class="n">3</div><div><b>Check the signal word</b>
+    DANGER (severe) or WARNING (less severe) — it's at the top of the SDS, Section 2. Never both.</div></div>
+  <div class="step"><div class="n">4</div><div><b>NFPA / HMIS numbers</b>
+    Health / Fire / Reactivity, 0 (none) to 4 (extreme). Usually printed in Section 16 of the SDS.
+    If the SDS doesn't give them, leave blank.</div></div>
+  <div class="step"><div class="n">5</div><div><b>Hazard & precautionary statements</b>
+    Copy the key lines from Section 2 — "Highly flammable liquid," "Causes serious eye irritation,"
+    "Keep away from heat," etc.</div></div>
+  <div class="step"><div class="n">6</div><div><b>Check the required PPE</b>
+    From Section 8 of the SDS — glasses, gloves, respirator, apron, boots.</div></div>
+  <div class="good">✔ Shortcut: the <a href="fill.html">Fill out a label</a> page does steps 1–6 for you —
+    search the chemical and every box fills in from the SDS automatically. Print it or copy it by hand.</div>
+  <p style="text-align:center;margin-top:14px"><a class="btn" href="fill.html">📝 Fill out a label now</a></p>
+ </div>
+
+ <div class="card">
+  <h2>The nine GHS pictograms</h2>
+  <div class="pics" id="pics"></div>
+ </div>
+
+ <div class="card">
+  <h2>Quick rules</h2>
+  <ul>
+   <li>Marker must be permanent and legible; label must survive the chemical it's next to.</li>
+   <li>If the container is too small, a tag or the sticker on a string is fine.</li>
+   <li>Never use food or drink containers for chemicals — labeled or not.</li>
+   <li>Faded or unreadable label = no label. Redo it.</li>
+   <li>These labels are for <b>workplace</b> use only — shipping containers need full GHS shipping labels.</li>
+  </ul>
+ </div>
+</div>
+
+<script src="assets/ghs.js"></script>
+<script>
+(function(){
+  var el=document.getElementById("pics");
+  window.GHS_ORDER.forEach(function(c){
+    var g=window.GHS[c];
+    el.innerHTML+='<div class="pic">'+g.svg+'<div><b>'+g.name+'</b><br>'+g.cls+'</div></div>';
+  });
+})();
+</script>
+</body>
+</html>

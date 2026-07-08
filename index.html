@@ -7,13 +7,16 @@
 <style>
   :root{
     --navy:#1f3864; --blue:#2e5496; --bg:#f4f6fa; --card:#ffffff; --ink:#1a2233;
-    --muted:#5b6577; --line:#dde3ee; --danger:#c0392b; --warn:#e67e22; --ok:#2e7d32;
+    --muted:#5b6577; --line:#dde3ee; --danger:#c0392b; --warn:#e67e22; --green:#0a7d33;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-  header{background:var(--navy);color:#fff;padding:18px 16px 14px;text-align:center}
+  header{background:var(--navy);color:#fff;padding:16px 14px 12px;text-align:center}
   header h1{margin:0;font-size:1.35rem;letter-spacing:.3px}
   header .sub{opacity:.85;font-size:.85rem;margin-top:4px}
+  .navbtns{margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .navbtns a{color:#fff;background:var(--blue);border:1px solid #5b7fc0;padding:7px 13px;border-radius:8px;
+             text-decoration:none;font-size:.82rem;font-weight:600}
   .wrap{max-width:860px;margin:0 auto;padding:14px 12px 60px}
   .searchbar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 6px}
   #q{width:100%;font-size:1.15rem;padding:13px 16px;border:2px solid var(--blue);border-radius:10px;outline:none}
@@ -23,37 +26,63 @@
         font-size:.82rem;cursor:pointer;user-select:none;color:var(--muted)}
   .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
   .count{font-size:.82rem;color:var(--muted);margin:8px 2px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;
+        display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+  .card:hover{background:#f8faff}
   .card.archived{opacity:.62}
-  .head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
-  .head:hover{background:#f8faff}
   .title{flex:1;min-width:0}
   .title .name{font-weight:600;font-size:1.05rem}
   .title .meta{font-size:.8rem;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sig{font-size:.72rem;font-weight:700;letter-spacing:.5px;padding:3px 9px;border-radius:6px;color:#fff;flex-shrink:0}
   .sig.Danger{background:var(--danger)} .sig.Warning{background:var(--warn)} .sig.none{background:#9aa3b2}
   .pictos{display:flex;gap:4px;flex-shrink:0}
-  .picto{width:30px;height:30px;position:relative;flex-shrink:0}
-  .picto svg{width:100%;height:100%}
-  .picto span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px}
-  .body{display:none;border-top:1px solid var(--line);padding:12px 14px;font-size:.9rem}
-  .card.open .body{display:block}
-  .body .row{margin-bottom:10px}
-  .body .lbl{font-weight:700;color:var(--blue);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
-  .body .val{white-space:pre-wrap;margin-top:2px}
-  .btns{display:flex;gap:8px;margin:4px 0 12px;flex-wrap:wrap}
-  .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;padding:10px 16px;
-       border-radius:8px;font-weight:600;font-size:.92rem}
-  .btn.alt{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
+  .picto{width:30px;height:30px;flex-shrink:0}
+  .picto svg{width:100%;height:100%;display:block}
   .empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:1rem}
   footer{text-align:center;color:var(--muted);font-size:.75rem;padding:20px}
-  @media (max-width:520px){ .pictos{display:none} .card.open .pictos-inline{display:flex} }
+
+  /* ---------- quick-info popup ---------- */
+  #ovl{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;
+       align-items:flex-start;justify-content:center;padding:20px 10px;overflow-y:auto}
+  #ovl.on{display:flex}
+  .modal{background:#fff;border-radius:14px;max-width:640px;width:100%;overflow:hidden;
+         box-shadow:0 20px 60px rgba(0,0,0,.35);margin-bottom:40px}
+  .mhead{color:#fff;padding:16px 18px;position:relative}
+  .mhead.Danger{background:var(--danger)} .mhead.Warning{background:var(--warn)} .mhead.none{background:var(--navy)}
+  .mhead h2{margin:0;font-size:1.3rem;padding-right:36px}
+  .mhead .msub{font-size:.85rem;opacity:.92;margin-top:3px}
+  .mhead .sigword{font-size:1rem;font-weight:800;letter-spacing:2px;margin-top:6px}
+  .mclose{position:absolute;top:10px;right:12px;background:rgba(255,255,255,.25);color:#fff;border:none;
+          width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;line-height:1}
+  .mbody{padding:14px 18px 18px;max-height:70vh;overflow-y:auto}
+  .mbtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .btn{display:inline-block;border:none;cursor:pointer;background:var(--blue);color:#fff;text-decoration:none;
+       padding:10px 15px;border-radius:8px;font-weight:600;font-size:.9rem;font-family:inherit}
+  .btn.green{background:var(--green)}
+  .btn.alt{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
+  .mpics{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 12px}
+  .mpic{width:72px;text-align:center;font-size:.66rem;color:var(--muted)}
+  .mpic svg{width:56px;height:56px}
+  .sec{margin:0 0 13px}
+  .sec h4{margin:0 0 4px;font-size:.76rem;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);
+          border-bottom:1px solid var(--line);padding-bottom:3px}
+  .sec .txt{white-space:pre-wrap;font-size:.88rem;line-height:1.45}
+  .ppe{background:#eaf3ff;border:1px solid #b9d3f0;border-radius:8px;padding:9px 12px;font-size:.9rem;font-weight:600}
+  .emg{background:#fdecea;border:1px solid #f2b8b5;border-radius:8px;padding:9px 12px;font-size:.95rem;font-weight:700;color:#8a1f16}
+  .verify{background:#fff7e0;border:1px solid #f0d68a;color:#7a5b00;font-size:.78rem;padding:7px 10px;border-radius:7px;margin-bottom:10px}
+  .metagrid{display:flex;flex-wrap:wrap;gap:5px 18px;font-size:.82rem;color:#444;margin-bottom:12px}
+  .metagrid b{color:#111}
+  #more{display:none} .morebar{text-align:center;margin-top:6px}
 </style>
 </head>
 <body>
 <header>
   <h1>Safety Data Sheets</h1>
   <div class="sub" id="sub">Loading…</div>
+  <div class="navbtns">
+    <a href="fill.html">📝 Fill out a blank label</a>
+    <a href="guide.html">🏷 What goes on a label</a>
+  </div>
 </header>
 <div class="wrap">
   <div class="searchbar">
@@ -67,12 +96,13 @@
 </div>
 <footer>If a chemical on site has no SDS listed here, report it to the safety manager immediately.</footer>
 
+<div id="ovl"><div class="modal" id="modal"></div></div>
+
+<script src="assets/ghs.js"></script>
 <script src="data/sds_data.js"></script>
 <script>
 (function(){
   var DATA = (window.SDS_DATA||[]), META = (window.SDS_META||{});
-  var GLYPH = {GHS01:"💥",GHS02:"🔥",GHS03:"⭕",GHS04:"🛢",
-               GHS05:"🧪",GHS06:"☠",GHS07:"❗",GHS08:"☣",GHS09:"🌿"};
   var CLASSES = ["Flammable","Corrosive","Acute toxic","Irritant / harmful","Health hazard",
                  "Oxidizer","Compressed gas","Explosive","Environmental"];
   var active = {}, showArchived = false;
@@ -93,34 +123,25 @@
   function esc(s){ return String(s||"").replace(/[&<>"]/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
 
-  function diamond(code,name){
-    return '<div class="picto" title="'+esc(name)+'">'+
-      '<svg viewBox="0 0 40 40"><rect x="7" y="7" width="26" height="26" rx="2" '+
-      'transform="rotate(45 20 20)" fill="#fff" stroke="#d32f2f" stroke-width="3"/></svg>'+
-      '<span>'+(GLYPH[code]||"")+'</span></div>';
-  }
-
-  function pictoHtml(p){
-    var out=""; String(p||"").split(",").forEach(function(part){
-      var m = part.match(/\(GHS0(\d)\)/); if(!m) return;
-      var code="GHS0"+m[1];
-      out+=diamond(code, part.replace(/\(.*\)/,"").trim());
-    });
+  function codesOf(r){
+    var out=[]; String(r["Pictograms"]||"").split(",").forEach(function(p){
+      var m=p.match(/\((GHS0\d)\)/); if(m) out.push(m[1]); });
     return out;
   }
-
+  function pictoHtml(r,small){
+    return codesOf(r).map(function(c){
+      var g=window.GHS[c]; if(!g) return "";
+      return small
+        ? '<div class="picto" title="'+esc(g.name)+'">'+g.svg+'</div>'
+        : '<div class="mpic">'+g.svg+'<div>'+esc(g.name)+'</div></div>';
+    }).join("");
+  }
   function isArchived(r){ return (r["Status / Notes"]||"").indexOf("ARCHIVED")===0; }
-
   function matches(r,q){
     if(!q) return true;
     var hay=[r["Product Name"],r["Official / Chemical Name"],r["Synonyms / Common Names"],
-             r["Manufacturer"],r["CAS #"],r["File"],r["Hazard Class"]].join(" | ").toLowerCase();
+             r["Manufacturer"],r["CAS #"],r["File"],r["Hazard Class"],r["Location / Area"]].join(" | ").toLowerCase();
     return q.split(/\s+/).every(function(w){ return hay.indexOf(w)>=0; });
-  }
-
-  function row(lbl,val){
-    if(!val) return "";
-    return '<div class="row"><div class="lbl">'+lbl+'</div><div class="val">'+esc(val)+'</div></div>';
   }
 
   function render(){
@@ -137,34 +158,128 @@
       var card=document.createElement("div");
       card.className="card"+(isArchived(r)?" archived":"");
       card.innerHTML =
-        '<div class="head">'+
-          '<div class="title"><div class="name">'+esc(r["Product Name"]||r["File"])+'</div>'+
-          '<div class="meta">'+esc([r["Official / Chemical Name"],r["Manufacturer"],
-              r["CAS #"]?("CAS "+r["CAS #"]):""].filter(Boolean).join(" · "))+'</div></div>'+
-          '<div class="pictos">'+pictoHtml(r["Pictograms"])+'</div>'+
-          '<div class="sig '+(sig||"none")+'">'+(sig||"—").toUpperCase()+'</div>'+
-        '</div>'+
-        '<div class="body">'+
-          '<div class="btns"><a class="btn" target="_blank" rel="noopener" href="sds/'+
-              encodeURIComponent(r["File"])+'">Open full SDS (PDF)</a></div>'+
-          row("Hazard class", r["Hazard Class"])+
-          row("Hazard statements", r["Hazard Statements"])+
-          row("Required PPE", r["Required PPE"])+
-          row("First aid (Section 4)", r["First Aid (Sec 4)"])+
-          row("Fire-fighting (Section 5)", r["Fire-Fighting (Sec 5)"])+
-          row("Spill / accidental release (Section 6)", r["Accidental Release (Sec 6)"])+
-          row("Handling & storage (Section 7)", r["Handling & Storage (Sec 7)"])+
-          row("Emergency phone", r["Emergency Phone"])+
-          row("NFPA", r["NFPA (H/F/R/Sp)"])+
-          row("SDS revision date", r["SDS Revision Date"])+
-          row("Location / area", r["Location / Area"])+
-          row("Notes", r["Status / Notes"])+
-        '</div>';
-      card.querySelector(".head").onclick=function(){ card.classList.toggle("open"); };
+        '<div class="title"><div class="name">'+esc(r["Product Name"]||r["File"])+'</div>'+
+        '<div class="meta">'+esc([r["Official / Chemical Name"],r["Manufacturer"],
+            r["CAS #"]?("CAS "+r["CAS #"]):""].filter(Boolean).join(" · "))+'</div></div>'+
+        '<div class="pictos">'+pictoHtml(r,true)+'</div>'+
+        '<div class="sig '+(sig||"none")+'">'+(sig||"—").toUpperCase()+'</div>';
+      card.onclick=function(){ openModal(i); };
       list.appendChild(card);
     });
     document.getElementById("count").textContent = shown ? shown+" shown" : "";
     document.getElementById("empty").style.display = shown ? "none" : "block";
+  }
+
+  function secHtml(t,x){
+    x=String(x||"").trim();
+    return x?'<div class="sec"><h4>'+t+'</h4><div class="txt">'+esc(x)+'</div></div>':"";
+  }
+
+  /* ---------- quick-info popup: the most important info first ---------- */
+  var ovl=document.getElementById("ovl"), modal=document.getElementById("modal");
+  function openModal(i){
+    var r=DATA[i], sig=r["Signal Word"]||"";
+    var needVerify=/^(Imported|REVIEW)/.test(r["Status / Notes"]||"");
+    modal.innerHTML =
+      '<div class="mhead '+(sig||"none")+'">'+
+        '<button class="mclose" onclick="document.getElementById(\'ovl\').classList.remove(\'on\')">✕</button>'+
+        '<h2>'+esc(r["Product Name"]||r["File"])+'</h2>'+
+        '<div class="msub">'+esc([r["Official / Chemical Name"],r["Manufacturer"],
+             r["CAS #"]?("CAS "+r["CAS #"]):""].filter(Boolean).join(" · "))+'</div>'+
+        (sig?'<div class="sigword">'+sig.toUpperCase()+'</div>':"")+
+      '</div>'+
+      '<div class="mbody">'+
+        (needVerify?'<div class="verify">⚠ Auto-read from the PDF — not yet verified by EHS. Confirm against the full sheet.</div>':"")+
+        '<div class="mbtns">'+
+          '<a class="btn" target="_blank" rel="noopener" href="sds/'+encodeURIComponent(r["File"])+'">📄 Open full SDS</a>'+
+          '<button class="btn green" data-label="'+i+'">🏷 Print secondary label</button>'+
+          '<a class="btn alt" href="fill.html?c='+encodeURIComponent(r["Product Name"]||r["File"])+'">📝 Fill-out view</a>'+
+        '</div>'+
+        (r["Emergency Phone"]?'<div class="emg">🚨 Emergency: '+esc(r["Emergency Phone"])+'</div>':"")+
+        '<div class="metagrid" style="margin-top:12px">'+
+          (r["Hazard Class"]?'<div><b>Hazard class:</b> '+esc(r["Hazard Class"])+'</div>':"")+
+          (r["NFPA (H/F/R/Sp)"]?'<div><b>NFPA:</b> '+esc(r["NFPA (H/F/R/Sp)"])+'</div>':"")+
+          (r["Location / Area"]?'<div><b>Location:</b> '+esc(r["Location / Area"])+'</div>':"")+
+          (r["SDS Revision Date"]?'<div><b>SDS date:</b> '+esc(r["SDS Revision Date"])+'</div>':"")+
+        '</div>'+
+        (codesOf(r).length?'<div class="sec"><h4>Pictograms</h4><div class="mpics">'+pictoHtml(r,false)+'</div></div>':"")+
+        secHtml("Hazards", r["Hazard Statements"])+
+        (String(r["Required PPE"]||"").trim()?'<div class="sec"><h4>Required PPE</h4><div class="ppe">🥽 '+esc(r["Required PPE"])+'</div></div>':"")+
+        secHtml("First aid (Section 4)", r["First Aid (Sec 4)"])+
+        '<div id="more">'+
+          secHtml("Fire-fighting (Section 5)", r["Fire-Fighting (Sec 5)"])+
+          secHtml("Spill / accidental release (Section 6)", r["Accidental Release (Sec 6)"])+
+          secHtml("Handling & storage (Section 7)", r["Handling & Storage (Sec 7)"])+
+          secHtml("Exposure controls / PPE (Section 8)", r["Exposure Controls / PPE (Sec 8)"])+
+          secHtml("Precautionary statements", r["Precautionary Statements"])+
+          secHtml("Notes", r["Status / Notes"])+
+        '</div>'+
+        '<div class="morebar"><button class="btn alt" id="moreBtn">Show full details ▾</button></div>'+
+      '</div>';
+    modal.querySelector("[data-label]").onclick=function(){ printLabel(i); };
+    var mb=modal.querySelector("#moreBtn");
+    mb.onclick=function(){
+      var m=modal.querySelector("#more"), open=m.style.display==="block";
+      m.style.display=open?"none":"block";
+      mb.textContent=open?"Show full details ▾":"Hide full details ▴";
+    };
+    ovl.classList.add("on");
+  }
+  ovl.onclick=function(e){ if(e.target===ovl) ovl.classList.remove("on"); };
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") ovl.classList.remove("on"); });
+
+  /* ---------- printable secondary label (auto-filled sticker) ---------- */
+  var NF={H:[64,37.5],F:[75,28],R:[86.5,37.5],S:[75,47]};
+  var HM={H:[91.5,59],F:[91.5,65],R:[91.5,71],P:[91.5,76.5]};
+  var SIG={DANGER:[91,10],WARNING:[91,16]};
+  var PPEPOS={"Safety Glasses":[6.5,84.7],"Splash Goggles":[6.5,88.7],"Face Shield":[6.5,92.7],
+              "Dust Respirator":[37,84.7],"Vapor Respirator":[37,88.7],"Gloves":[37,92.7],
+              "Apron":[68,84.7],"Full Body Suit":[68,88.7],"Boots":[68,92.7]};
+  var PICPOS={GHS09:[30,13],GHS04:[17,22],GHS05:[42,22],GHS01:[9,33],GHS02:[30,33],
+              GHS03:[50,33],GHS06:[18,42],GHS07:[39,43],GHS08:[30,50]};
+
+  function printLabel(i){
+    var d=DATA[i], ov=[];
+    function abs(x,y,t,cls){ return '<div class="ov '+(cls||"")+'" style="left:'+x+'%;top:'+y+'%">'+t+'</div>'; }
+    ov.push('<div class="ov pid" style="left:29%;top:4.6%">'+esc(d["Product Name"]||d["File"])+'</div>');
+    var sw=String(d["Signal Word"]||"").toUpperCase();
+    if(SIG[sw]) ov.push(abs(SIG[sw][0],SIG[sw][1],"✕","x"));
+    var nf=String(d["NFPA (H/F/R/Sp)"]||"").match(/H\s*(\d)[^]*?F\s*(\d)[^]*?R\s*(\d)(?:[^]*?\/\s*([A-Z]+))?/);
+    if(nf){ ov.push(abs(NF.H[0],NF.H[1],nf[1],"num w")); ov.push(abs(NF.F[0],NF.F[1],nf[2],"num w"));
+      ov.push(abs(NF.R[0],NF.R[1],nf[3],"num")); if(nf[4]) ov.push(abs(NF.S[0],NF.S[1],nf[4],"num sp")); }
+    var hm=String(d["HMIS (H/F/R/PPE)"]||"").match(/H\s*(\d)[^]*?F\s*(\d)[^]*?R\s*(\d)(?:[^]*?PPE\s*([A-KX]))?/);
+    if(hm){ ov.push(abs(HM.H[0],HM.H[1],hm[1],"num")); ov.push(abs(HM.F[0],HM.F[1],hm[2],"num"));
+      ov.push(abs(HM.R[0],HM.R[1],hm[3],"num")); if(hm[4]) ov.push(abs(HM.P[0],HM.P[1],hm[4],"num")); }
+    var info=[];
+    String(d["Hazard Statements"]||"").split(/\n/).filter(Boolean).forEach(function(x){ info.push(x.replace(/^H\d{3}\s*/,"")); });
+    String(d["Precautionary Statements"]||"").split(/\n/).filter(Boolean).forEach(function(x){ info.push(x.replace(/^P[\d+ ]+/,"")); });
+    ov.push('<div class="ov info" style="left:4.5%;top:60%">'+esc(info.join(" "))+'</div>');
+    var req=String(d["Required PPE"]||"").toLowerCase();
+    function chk(n){ var p=PPEPOS[n]; if(p) ov.push(abs(p[0],p[1],"✕","x sm")); }
+    if(/glass|goggle/.test(req)) chk("Safety Glasses");
+    if(/goggle|splash/.test(req)) chk("Splash Goggles");
+    if(/face shield/.test(req)) chk("Face Shield");
+    if(/glove/.test(req)) chk("Gloves");
+    if(/dust/.test(req)) chk("Dust Respirator");
+    if(/respirator|vapou?r/.test(req)&&!/dust/.test(req)) chk("Vapor Respirator");
+    if(/apron|protective clothing|coverall/.test(req)) chk("Apron");
+    if(/full body|suit/.test(req)) chk("Full Body Suit");
+    if(/boot/.test(req)) chk("Boots");
+    var present={}; codesOf(d).forEach(function(c){ present[c]=1; });
+    Object.keys(PICPOS).forEach(function(c){ if(!present[c]){ var p=PICPOS[c]; ov.push(abs(p[0],p[1],"✕","xpic")); } });
+    var css='body{margin:0;padding:14px;font-family:Arial;text-align:center}'+
+     '.wrap{position:relative;display:inline-block;width:520px;max-width:100%}.wrap img{width:100%;display:block}'+
+     '.ov{position:absolute;transform:translate(-50%,-50%);font-weight:bold;color:#000;line-height:1}'+
+     '.pid{transform:none;font-size:15px;color:#001a66;text-align:left;max-width:34%}'+
+     '.info{transform:none;text-align:left;font-size:9px;font-weight:normal;line-height:1.2;width:44%;max-height:18%;overflow:hidden}'+
+     '.num{font-size:19px}.num.w{color:#fff}.sp{font-size:13px}'+
+     '.x{color:#c00000;font-size:18px}.x.sm{color:#000;font-size:13px}.xpic{color:#d00000;font-size:30px;opacity:.85}'+
+     '.note{margin:8px auto 0;font-size:11px;color:#555;max-width:520px}';
+    var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Label - '+esc(d["Product Name"])+'</title>'+
+     '<style>'+css+'</style></head><body><div class="wrap"><img src="assets/secondary_sticker.png">'+ov.join("")+'</div>'+
+     '<div class="note">Auto-filled from the SDS — verify against the full sheet, write the Date, and cross out any pictogram that does not apply. Not for shipping.</div>'+
+     '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print()},450)}</scr'+'ipt></body></html>';
+    var w=window.open("","_blank","width=620,height=900"); w.document.write(html); w.document.close(); w.focus();
   }
 
   document.getElementById("q").addEventListener("input", render);
