@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDS Lookup — Fibertech</title>
+<style>
+  :root{
+    --navy:#1f3864; --blue:#2e5496; --bg:#f4f6fa; --card:#ffffff; --ink:#1a2233;
+    --muted:#5b6577; --line:#dde3ee; --danger:#c0392b; --warn:#e67e22; --ok:#2e7d32;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--navy);color:#fff;padding:18px 16px 14px;text-align:center}
+  header h1{margin:0;font-size:1.35rem;letter-spacing:.3px}
+  header .sub{opacity:.85;font-size:.85rem;margin-top:4px}
+  .wrap{max-width:860px;margin:0 auto;padding:14px 12px 60px}
+  .searchbar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 6px}
+  #q{width:100%;font-size:1.15rem;padding:13px 16px;border:2px solid var(--blue);border-radius:10px;outline:none}
+  #q:focus{box-shadow:0 0 0 3px rgba(46,84,150,.25)}
+  .filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px;
+        font-size:.82rem;cursor:pointer;user-select:none;color:var(--muted)}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .count{font-size:.82rem;color:var(--muted);margin:8px 2px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+  .card.archived{opacity:.62}
+  .head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+  .head:hover{background:#f8faff}
+  .title{flex:1;min-width:0}
+  .title .name{font-weight:600;font-size:1.05rem}
+  .title .meta{font-size:.8rem;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sig{font-size:.72rem;font-weight:700;letter-spacing:.5px;padding:3px 9px;border-radius:6px;color:#fff;flex-shrink:0}
+  .sig.Danger{background:var(--danger)} .sig.Warning{background:var(--warn)} .sig.none{background:#9aa3b2}
+  .pictos{display:flex;gap:4px;flex-shrink:0}
+  .picto{width:30px;height:30px;position:relative;flex-shrink:0}
+  .picto svg{width:100%;height:100%}
+  .picto span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .body{display:none;border-top:1px solid var(--line);padding:12px 14px;font-size:.9rem}
+  .card.open .body{display:block}
+  .body .row{margin-bottom:10px}
+  .body .lbl{font-weight:700;color:var(--blue);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+  .body .val{white-space:pre-wrap;margin-top:2px}
+  .btns{display:flex;gap:8px;margin:4px 0 12px;flex-wrap:wrap}
+  .btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;padding:10px 16px;
+       border-radius:8px;font-weight:600;font-size:.92rem}
+  .btn.alt{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
+  .empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:1rem}
+  footer{text-align:center;color:var(--muted);font-size:.75rem;padding:20px}
+  @media (max-width:520px){ .pictos{display:none} .card.open .pictos-inline{display:flex} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Safety Data Sheets</h1>
+  <div class="sub" id="sub">Loading…</div>
+</header>
+<div class="wrap">
+  <div class="searchbar">
+    <input id="q" type="search" placeholder="Search product, chemical, CAS #, manufacturer…" autocomplete="off">
+    <div class="filters" id="filters"></div>
+  </div>
+  <div class="count" id="count"></div>
+  <div id="list"></div>
+  <div class="empty" id="empty" style="display:none">No matching SDS found.<br>
+    Check spelling, or contact your safety manager if a chemical is missing.</div>
+</div>
+<footer>If a chemical on site has no SDS listed here, report it to the safety manager immediately.</footer>
+
+<script src="data/sds_data.js"></script>
+<script>
+(function(){
+  var DATA = (window.SDS_DATA||[]), META = (window.SDS_META||{});
+  var GLYPH = {GHS01:"💥",GHS02:"🔥",GHS03:"⭕",GHS04:"🛢",
+               GHS05:"🧪",GHS06:"☠",GHS07:"❗",GHS08:"☣",GHS09:"🌿"};
+  var CLASSES = ["Flammable","Corrosive","Acute toxic","Irritant / harmful","Health hazard",
+                 "Oxidizer","Compressed gas","Explosive","Environmental"];
+  var active = {}, showArchived = false;
+
+  document.getElementById("sub").textContent =
+    (META.count||DATA.length) + " chemicals on file" + (META.updated ? " · updated " + META.updated : "");
+
+  var fEl = document.getElementById("filters");
+  CLASSES.forEach(function(c){
+    var b = document.createElement("div"); b.className="chip"; b.textContent=c;
+    b.onclick=function(){ active[c]=!active[c]; b.classList.toggle("on",active[c]); render(); };
+    fEl.appendChild(b);
+  });
+  var ar = document.createElement("div"); ar.className="chip"; ar.textContent="Show archived";
+  ar.onclick=function(){ showArchived=!showArchived; ar.classList.toggle("on",showArchived); render(); };
+  fEl.appendChild(ar);
+
+  function esc(s){ return String(s||"").replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+
+  function diamond(code,name){
+    return '<div class="picto" title="'+esc(name)+'">'+
+      '<svg viewBox="0 0 40 40"><rect x="7" y="7" width="26" height="26" rx="2" '+
+      'transform="rotate(45 20 20)" fill="#fff" stroke="#d32f2f" stroke-width="3"/></svg>'+
+      '<span>'+(GLYPH[code]||"")+'</span></div>';
+  }
+
+  function pictoHtml(p){
+    var out=""; String(p||"").split(",").forEach(function(part){
+      var m = part.match(/\(GHS0(\d)\)/); if(!m) return;
+      var code="GHS0"+m[1];
+      out+=diamond(code, part.replace(/\(.*\)/,"").trim());
+    });
+    return out;
+  }
+
+  function isArchived(r){ return (r["Status / Notes"]||"").indexOf("ARCHIVED")===0; }
+
+  function matches(r,q){
+    if(!q) return true;
+    var hay=[r["Product Name"],r["Official / Chemical Name"],r["Synonyms / Common Names"],
+             r["Manufacturer"],r["CAS #"],r["File"],r["Hazard Class"]].join(" | ").toLowerCase();
+    return q.split(/\s+/).every(function(w){ return hay.indexOf(w)>=0; });
+  }
+
+  function row(lbl,val){
+    if(!val) return "";
+    return '<div class="row"><div class="lbl">'+lbl+'</div><div class="val">'+esc(val)+'</div></div>';
+  }
+
+  function render(){
+    var q=document.getElementById("q").value.trim().toLowerCase();
+    var on=Object.keys(active).filter(function(k){return active[k];});
+    var list=document.getElementById("list"); list.innerHTML="";
+    var shown=0;
+    DATA.forEach(function(r,i){
+      if(isArchived(r)&&!showArchived) return;
+      if(!matches(r,q)) return;
+      if(on.length && !on.some(function(c){return (r["Hazard Class"]||"").indexOf(c)>=0;})) return;
+      shown++;
+      var sig=r["Signal Word"]||"";
+      var card=document.createElement("div");
+      card.className="card"+(isArchived(r)?" archived":"");
+      card.innerHTML =
+        '<div class="head">'+
+          '<div class="title"><div class="name">'+esc(r["Product Name"]||r["File"])+'</div>'+
+          '<div class="meta">'+esc([r["Official / Chemical Name"],r["Manufacturer"],
+              r["CAS #"]?("CAS "+r["CAS #"]):""].filter(Boolean).join(" · "))+'</div></div>'+
+          '<div class="pictos">'+pictoHtml(r["Pictograms"])+'</div>'+
+          '<div class="sig '+(sig||"none")+'">'+(sig||"—").toUpperCase()+'</div>'+
+        '</div>'+
+        '<div class="body">'+
+          '<div class="btns"><a class="btn" target="_blank" rel="noopener" href="sds/'+
+              encodeURIComponent(r["File"])+'">Open full SDS (PDF)</a></div>'+
+          row("Hazard class", r["Hazard Class"])+
+          row("Hazard statements", r["Hazard Statements"])+
+          row("Required PPE", r["Required PPE"])+
+          row("First aid (Section 4)", r["First Aid (Sec 4)"])+
+          row("Fire-fighting (Section 5)", r["Fire-Fighting (Sec 5)"])+
+          row("Spill / accidental release (Section 6)", r["Accidental Release (Sec 6)"])+
+          row("Handling & storage (Section 7)", r["Handling & Storage (Sec 7)"])+
+          row("Emergency phone", r["Emergency Phone"])+
+          row("NFPA", r["NFPA (H/F/R/Sp)"])+
+          row("SDS revision date", r["SDS Revision Date"])+
+          row("Location / area", r["Location / Area"])+
+          row("Notes", r["Status / Notes"])+
+        '</div>';
+      card.querySelector(".head").onclick=function(){ card.classList.toggle("open"); };
+      list.appendChild(card);
+    });
+    document.getElementById("count").textContent = shown ? shown+" shown" : "";
+    document.getElementById("empty").style.display = shown ? "none" : "block";
+  }
+
+  document.getElementById("q").addEventListener("input", render);
+  render();
+})();
+</script>
+</body>
+</html>
