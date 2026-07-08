@@ -99,6 +99,7 @@
 <div id="ovl"><div class="modal" id="modal"></div></div>
 
 <script src="assets/ghs.js"></script>
+<script src="assets/label_pos.js"></script>
 <script src="data/sds_data.js"></script>
 <script>
 (function(){
@@ -229,19 +230,16 @@
   document.addEventListener("keydown",function(e){ if(e.key==="Escape") ovl.classList.remove("on"); });
 
   /* ---------- printable secondary label (auto-filled sticker) ---------- */
-  var NF={H:[64,37.5],F:[75,28],R:[86.5,37.5],S:[75,47]};
-  var HM={H:[91.5,59],F:[91.5,65],R:[91.5,71],P:[91.5,76.5]};
-  var SIG={DANGER:[91,10],WARNING:[91,16]};
-  var PPEPOS={"Safety Glasses":[6.5,84.7],"Splash Goggles":[6.5,88.7],"Face Shield":[6.5,92.7],
-              "Dust Respirator":[37,84.7],"Vapor Respirator":[37,88.7],"Gloves":[37,92.7],
-              "Apron":[68,84.7],"Full Body Suit":[68,88.7],"Boots":[68,92.7]};
-  var PICPOS={GHS09:[30,13],GHS04:[17,22],GHS05:[42,22],GHS01:[9,33],GHS02:[30,33],
-              GHS03:[50,33],GHS06:[18,42],GHS07:[39,43],GHS08:[30,50]};
+  var LP=window.LABEL_POS;
+  var NF=LP.NF, HM=LP.HM, SIG=LP.SIG, PICPOS=LP.PIC;
+  var PPEPOS={};
+  LP.PPE.forEach(function(t){ PPEPOS[t[0]]=[t[1],t[2]]; });
 
   function printLabel(i){
     var d=DATA[i], ov=[];
     function abs(x,y,t,cls){ return '<div class="ov '+(cls||"")+'" style="left:'+x+'%;top:'+y+'%">'+t+'</div>'; }
-    ov.push('<div class="ov pid" style="left:29%;top:4.6%">'+esc(d["Product Name"]||d["File"])+'</div>');
+    ov.push('<div class="ov pid" style="left:'+LP.NAME.left+'%;top:'+LP.NAME.top+'%">'+esc(d["Product Name"]||d["File"])+'</div>');
+    ov.push('<div class="ov pid" style="left:'+LP.DATE.left+'%;top:'+LP.DATE.top+'%">'+new Date().toLocaleDateString()+'</div>');
     var sw=String(d["Signal Word"]||"").toUpperCase();
     if(SIG[sw]) ov.push(abs(SIG[sw][0],SIG[sw][1],"✕","x"));
     var nf=String(d["NFPA (H/F/R/Sp)"]||"").match(/H\s*(\d)[^]*?F\s*(\d)[^]*?R\s*(\d)(?:[^]*?\/\s*([A-Z]+))?/);
@@ -253,7 +251,7 @@
     var info=[];
     String(d["Hazard Statements"]||"").split(/\n/).filter(Boolean).forEach(function(x){ info.push(x.replace(/^H\d{3}\s*/,"")); });
     String(d["Precautionary Statements"]||"").split(/\n/).filter(Boolean).forEach(function(x){ info.push(x.replace(/^P[\d+ ]+/,"")); });
-    ov.push('<div class="ov info" style="left:4.5%;top:60%">'+esc(info.join(" "))+'</div>');
+    ov.push('<div class="ov info" style="left:'+LP.INFO.left+'%;top:'+LP.INFO.top+'%;width:'+LP.INFO.width+'%;max-height:'+LP.INFO.height+'%">'+esc(info.join(" "))+'</div>');
     var req=String(d["Required PPE"]||"").toLowerCase();
     function chk(n){ var p=PPEPOS[n]; if(p) ov.push(abs(p[0],p[1],"✕","x sm")); }
     if(/glass|goggle/.test(req)) chk("Safety Glasses");
@@ -276,7 +274,7 @@
      '.x{color:#c00000;font-size:18px}.x.sm{color:#000;font-size:13px}.xpic{color:#d00000;font-size:30px;opacity:.85}'+
      '.note{margin:8px auto 0;font-size:11px;color:#555;max-width:520px}';
     var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Label - '+esc(d["Product Name"])+'</title>'+
-     '<style>'+css+'</style></head><body><div class="wrap"><img src="assets/secondary_sticker.png">'+ov.join("")+'</div>'+
+     '<style>'+css+'</style></head><body><div class="wrap"><img src="'+new URL("assets/secondary_sticker.png",location.href).href+'">'+ov.join("")+'</div>'+
      '<div class="note">Auto-filled from the SDS — verify against the full sheet, write the Date, and cross out any pictogram that does not apply. Not for shipping.</div>'+
      '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print()},450)}</scr'+'ipt></body></html>';
     var w=window.open("","_blank","width=620,height=900"); w.document.write(html); w.document.close(); w.focus();

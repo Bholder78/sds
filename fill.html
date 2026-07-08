@@ -65,18 +65,14 @@
 </div>
 
 <script src="data/sds_data.js"></script>
+<script src="assets/label_pos.js"></script>
 <script>
 (function(){
   var DATA=(window.SDS_DATA||[]).filter(function(r){return (r["Status / Notes"]||"").indexOf("ARCHIVED")!==0;});
+  var LP=window.LABEL_POS;
   var POS={
-    SIG:{DANGER:[89,9.5],WARNING:[89,15.5]},
-    NF:{H:[64,37.5],F:[75,28],R:[86.5,37.5],S:[75,47]},
-    HM:{H:[91.5,59],F:[91.5,65],R:[91.5,71],P:[91.5,76.5]},
-    PPE:[["Safety Glasses",6.5,84.7],["Splash Goggles",6.5,88.7],["Face Shield",6.5,92.7],["Other",6.5,96.3],
-         ["Dust Respirator",37,84.7],["Vapor Respirator",37,88.7],["Gloves",37,92.7],
-         ["Apron",68,84.7],["Full Body Suit",68,88.7],["Boots",68,92.7]],
-    PIC:[["GHS09",30,13],["GHS04",17,22],["GHS05",42,22],["GHS01",9,33],["GHS02",30,33],
-         ["GHS03",50,33],["GHS06",18,42],["GHS07",39,43],["GHS08",30,50]]
+    SIG:LP.SIG, NF:LP.NF, HM:LP.HM, PPE:LP.PPE,
+    PIC:Object.keys(LP.PIC).map(function(c){return [c,LP.PIC[c][0],LP.PIC[c][1]];})
   };
   var frame=document.getElementById("frame"), F={sig:{},nf:{},hm:{},ppe:{},pic:{}};
 
@@ -85,8 +81,8 @@
     for(var k in (attrs||{})) e.setAttribute(k,attrs[k]);
     return e;
   }
-  F.name=el("input","fld txt","left:27%;top:4.7%;width:30%",{placeholder:"Product name"});
-  F.date=el("input","fld txt","left:71%;top:4.7%;width:26%",{placeholder:"Date"});
+  F.name=el("input","fld txt","left:"+LP.NAME.left+"%;top:"+LP.NAME.top+"%;width:"+LP.NAME.width+"%",{placeholder:"Product name"});
+  F.date=el("input","fld txt","left:"+LP.DATE.left+"%;top:"+LP.DATE.top+"%;width:"+LP.DATE.width+"%",{placeholder:"Date"});
   frame.appendChild(F.name); frame.appendChild(F.date);
   Object.keys(POS.SIG).forEach(function(n){var p=POS.SIG[n];
     F.sig[n]=el("input","fld chk","left:"+p[0]+"%;top:"+p[1]+"%",{type:"checkbox",title:n});
@@ -97,7 +93,7 @@
   Object.keys(POS.HM).forEach(function(k){var p=POS.HM[k];
     F.hm[k]=el("input","fld num","left:"+p[0]+"%;top:"+p[1]+"%",{maxlength:"2",title:"HMIS "+k});
     frame.appendChild(F.hm[k]);});
-  F.info=el("textarea","fld area","left:4.5%;top:59%;width:44%;height:18%",{placeholder:"Hazard / precautionary statements"});
+  F.info=el("textarea","fld area","left:"+LP.INFO.left+"%;top:"+LP.INFO.top+"%;width:"+LP.INFO.width+"%;height:"+LP.INFO.height+"%",{placeholder:"Hazard / precautionary statements"});
   frame.appendChild(F.info);
   POS.PPE.forEach(function(t){
     F.ppe[t[0]]=el("input","fld chk","left:"+t[1]+"%;top:"+t[2]+"%",{type:"checkbox",title:t[0]});
