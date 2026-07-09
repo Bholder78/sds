@@ -70,7 +70,15 @@ CLASS_BY_CODE = {p[1]: p[3] for p in PICTO}
 
 # ---------------- text extraction (with OCR fallback) ----------------
 def find_tesseract():
-    return shutil.which("tesseract")
+    exe = shutil.which("tesseract")
+    if exe:
+        return exe
+    for base in (os.environ.get("ProgramFiles", ""), os.environ.get("ProgramFiles(x86)", ""),
+                 os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs")):
+        cand = os.path.join(base, "Tesseract-OCR", "tesseract.exe")
+        if base and os.path.exists(cand):
+            return cand
+    return None
 
 TESS = find_tesseract()
 
@@ -78,6 +86,7 @@ def ocr_pdf(path, max_pages=12):
     try:
         import fitz, pytesseract
         from PIL import Image
+        pytesseract.pytesseract.tesseract_cmd = TESS
         doc = fitz.open(path)
         out = []
         for i, page in enumerate(doc):
@@ -113,7 +122,15 @@ def first(patterns, text):
                 return val[:200]
     return ""
 
-def section(text, n):
+SEC_TITLES = {
+    1: r"identification", 2: r"hazard", 3: r"composition|information\s+on\s+ingredients",
+    4: r"first[\s\-]?aid", 5: r"fire[\s\-]?fighting", 6: r"accidental\s+release",
+    7: r"handling\s+and\s+storage", 8: r"exposure\s+control", 9: r"physical\s+and\s+chemical",
+    10: r"stability\s+and\s+reactivity", 11: r"toxicolog", 12: r"ecolog",
+    13: r"disposal", 14: r"transport", 15: r"regulatory", 16: r"other\s+information",
+}
+
+def find_heads(text):
     heads = {}
     for m in re.finditer(r"(?im)^\s*section\s*0?(\d{1,2})\b.*$", text):
         heads.setdefault(int(m.group(1)), m.start())
@@ -122,6 +139,20 @@ def section(text, n):
             num = int(m.group(1))
             if 1 <= num <= 16:
                 heads.setdefault(num, m.start())
+    # some PDFs extract with headers glued mid-line ("...Number 111. IdentificationProduct...")
+    # or with odd bullet chars ("4 – First Aid Measures") — find any section still missing
+    # by "<number> <standard title>" anywhere in the text
+    for num, title in SEC_TITLES.items():
+        if num in heads:
+            continue
+        m = (re.search(r"(?i)\b0?%d\s*[.):\-]\s*(?:%s)" % (num, title), text)
+             or re.search(r"(?i)0?%d\s*[^\w\n]{0,3}\s*(?:%s)" % (num, title), text))
+        if m:
+            heads[num] = m.start()
+    return heads
+
+def section(text, n):
+    heads = find_heads(text)
     if n not in heads:
         return ""
     start = heads[n]

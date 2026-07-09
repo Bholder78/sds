@@ -37,7 +37,7 @@
   .sig.Danger{background:var(--danger)} .sig.Warning{background:var(--warn)} .sig.none{background:#9aa3b2}
   .pictos{display:flex;gap:4px;flex-shrink:0}
   .picto{width:30px;height:30px;flex-shrink:0}
-  .picto svg{width:100%;height:100%;display:block}
+  .picto svg,.picto img{width:100%;height:100%;display:block}
   .empty{text-align:center;color:var(--muted);padding:40px 10px;font-size:1rem}
   footer{text-align:center;color:var(--muted);font-size:.75rem;padding:20px}
 
@@ -62,7 +62,7 @@
   .btn.alt{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
   .mpics{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 12px}
   .mpic{width:72px;text-align:center;font-size:.66rem;color:var(--muted)}
-  .mpic svg{width:56px;height:56px}
+  .mpic svg,.mpic img{width:56px;height:56px}
   .sec{margin:0 0 13px}
   .sec h4{margin:0 0 4px;font-size:.76rem;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);
           border-bottom:1px solid var(--line);padding-bottom:3px}
@@ -98,8 +98,8 @@
 
 <div id="ovl"><div class="modal" id="modal"></div></div>
 
-<script src="assets/ghs.js"></script>
-<script src="assets/label_pos.js"></script>
+<script src="assets/ghs.js?v=2"></script>
+<script src="assets/label_pos.js?v=2"></script>
 <script src="data/sds_data.js"></script>
 <script>
 (function(){
@@ -204,15 +204,15 @@
           (r["SDS Revision Date"]?'<div><b>SDS date:</b> '+esc(r["SDS Revision Date"])+'</div>':"")+
         '</div>'+
         (codesOf(r).length?'<div class="sec"><h4>Pictograms</h4><div class="mpics">'+pictoHtml(r,false)+'</div></div>':"")+
-        secHtml("Hazards", r["Hazard Statements"])+
-        (String(r["Required PPE"]||"").trim()?'<div class="sec"><h4>Required PPE</h4><div class="ppe">🥽 '+esc(r["Required PPE"])+'</div></div>':"")+
+        secHtml("Hazards (Section 2)", r["Hazard Statements"])+
+        secHtml("Precautionary statements (Section 2)", r["Precautionary Statements"])+
         secHtml("First aid (Section 4)", r["First Aid (Sec 4)"])+
+        secHtml("Fire-fighting (Section 5)", r["Fire-Fighting (Sec 5)"])+
+        (String(r["Required PPE"]||"").trim()?'<div class="sec"><h4>Required PPE</h4><div class="ppe">🥽 '+esc(r["Required PPE"])+'</div></div>':"")+
+        secHtml("Exposure controls / PPE (Section 8)", r["Exposure Controls / PPE (Sec 8)"])+
         '<div id="more">'+
-          secHtml("Fire-fighting (Section 5)", r["Fire-Fighting (Sec 5)"])+
           secHtml("Spill / accidental release (Section 6)", r["Accidental Release (Sec 6)"])+
           secHtml("Handling & storage (Section 7)", r["Handling & Storage (Sec 7)"])+
-          secHtml("Exposure controls / PPE (Section 8)", r["Exposure Controls / PPE (Sec 8)"])+
-          secHtml("Precautionary statements", r["Precautionary Statements"])+
           secHtml("Notes", r["Status / Notes"])+
         '</div>'+
         '<div class="morebar"><button class="btn alt" id="moreBtn">Show full details ▾</button></div>'+
