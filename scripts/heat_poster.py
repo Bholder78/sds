@@ -206,7 +206,25 @@ def summarize_day(hours: list[dict], date: dt.date, daily: dict[dt.date, dict] |
         "hottest": hottest,
         "forecast_high_f": high_f,
         "short_forecast": short,
+        # Every hour that went into the decision, kept for the record.
+        "hours": [{"time": h["time"].strftime("%I:%M %p").lstrip("0"), "temp_f": int(round(h["temp"])),
+                   "humidity": int(round(h["rh"])), "heat_index": round(h["hi"], 1),
+                   "zone": zone_for(h["hi"]), "forecast": h["short"]} for h in window],
     }
+
+
+def archive_folder(d: dt.date) -> str:
+    """Year/month folder the laptop job uses on SharePoint, e.g. '2026/10. October'."""
+    return f"{d.year}/{d.month}. {d.strftime('%B')}"
+
+
+def nws_provenance(hourly: dict, daily: dict) -> dict:
+    """When NWS generated the forecasts we used (so a record can be traced back)."""
+    def pick(data: dict) -> dict:
+        p = (data or {}).get("properties", {})
+        return {k: p[k] for k in ("generatedAt", "updateTime", "updated") if k in p}
+    return {"hourly_forecast": pick(hourly), "daily_forecast": pick(daily),
+            "grid": f"{NWS_OFFICE}/{GRID_X},{GRID_Y}", "hourly_url": HOURLY_URL, "daily_url": DAILY_URL}
 
 
 def rest_of_week_dates(target: dt.date) -> list[dt.date]:
@@ -254,11 +272,33 @@ def build_card(summary: dict, week: list[dict], poster_url: str) -> dict:
             "version": "1.4", "body": body}
 
 
-def post_card(card: dict, webhook_url: str, retries: int = 3) -> None:
+def webhook_payload(meta: dict) -> dict:
+    """Body sent to the Teams Workflows webhook.
+
+    'attachments' is what the stock "Post to a channel when a webhook request is
+    received" flow posts. The extra top-level fields are there for added flow steps
+    (save the metadata and poster to SharePoint, email the poster, ...).
+    """
+    record = {k: v for k, v in meta.items() if k != "card"}
+    return {
+        "type": "message",
+        "attachments": [{"contentType": "application/vnd.microsoft.card.adaptive",
+                         "contentUrl": None, "content": meta["card"]}],
+        "date": meta["date"],
+        "date_short": meta["date_short"],
+        "heat_index": meta["heat_index"],
+        "zone": meta["zone"],
+        "poster_name": meta["poster"],
+        "poster_url": meta["poster_url"],
+        "metadata_name": meta["poster"].replace(".png", " metadata.json"),
+        "archive_folder": meta["archive_folder"],
+        "metadata": record,
+    }
+
+
+def post_card(meta: dict, webhook_url: str, retries: int = 3) -> None:
     import requests
-    payload = {"type": "message", "attachments": [{
-        "contentType": "application/vnd.microsoft.card.adaptive",
-        "contentUrl": None, "content": card}]}
+    payload = webhook_payload(meta)
     last = None
     for attempt in range(retries):
         try:
@@ -469,10 +509,14 @@ def build(target: dt.date, out_dir: Path, hourly: dict, daily: dict, force: bool
         "location": LOCATION,
         "week": [{"date": w["date"].strftime("%m/%d/%Y"), "day": w["day"], "heat_index": f"{w['heat_index']:.1f}",
                   "zone": w["zone"], "high_f": w["high_f"], "short_forecast": w["short_forecast"]} for w in week],
+        "hottest_part_of_day": summary["hottest"],
+        "hours": summary["hours"],
         "poster": png.name,
         "poster_url": poster_url,
-        "source": {"hourly": HOURLY_URL, "daily": DAILY_URL,
-                   "method": f"Peak NWS heat index {hour_label(WINDOW_START_HOUR)}-{hour_label(WINDOW_END_HOUR)}"},
+        "archive_folder": archive_folder(target),
+        "method": (f"Peak NWS heat index, {hour_label(WINDOW_START_HOUR)} to {hour_label(WINDOW_END_HOUR)}, "
+                   f"from the hourly forecast for {LOCATION}. Zones: White 90 and below, Red 91-114, Black 115+."),
+        "source": nws_provenance(hourly, daily),
         "card": card,
         "generated_at": dt.datetime.now(TZ).isoformat(timespec="seconds"),
         "generated_by": "github-actions/heat-poster",
@@ -502,7 +546,7 @@ def main(argv: list[str] | None = None) -> int:
             print("TEAMS_HEAT_WEBHOOK_URL is not set; skipping Teams post.")
             return 0
         meta = json.loads(Path(args.post_json).read_text(encoding="utf-8"))
-        post_card(meta["card"], url)
+        post_card(meta, url)
         return 0
 
     today = dt.datetime.now(TZ).date()
@@ -523,7 +567,7 @@ def main(argv: list[str] | None = None) -> int:
     if meta and args.post:
         url = os.environ.get("TEAMS_HEAT_WEBHOOK_URL", "").strip()
         if url:
-            post_card(meta["card"], url)
+            post_card(meta, url)
         else:
             print("TEAMS_HEAT_WEBHOOK_URL is not set; skipping Teams post.")
     return 0

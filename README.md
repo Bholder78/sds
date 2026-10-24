@@ -68,4 +68,40 @@ Secrets and variables → Actions) holding the URL from a Teams workflow
 poster still builds and commits; only the card is skipped.
 
 **If the laptop job also runs:** the cloud job starts five minutes later and skips any
-date that already has a poster, so there are never two posters or two cards.
+date that already has a poster, so there are never two posters or two cards. A second
+run at 2 PM Central rebuilds the day only if the first run failed.
+
+### Records
+
+| Record | Where it lives | Kept by |
+|---|---|---|
+| Poster of record (PNG) | `heat-posters/<M.D.YY>.png` in this repo, with its commit date | GitHub, forever |
+| Day record (JSON): heat index, zone, hottest window, all 13 hourly readings (temp, humidity, heat index), rest-of-week numbers, which NWS forecast run it came from | `heat-posters/<M.D.YY>.json` | GitHub, forever |
+| Teams card in the Safety channel | Teams | Microsoft retention |
+| SharePoint copy (poster + `<M.D.YY> metadata.json`) in `Safety/Daily Heat Index/<year>/<n. Month>/` | SharePoint | your Teams flow (recipe below) |
+| Run log and a copy of the day's files | GitHub → Actions → the run | 90 days |
+
+The Word file (`DHI.docx`), the NWS screenshot and the HIC image that the laptop job
+saved are not produced in the cloud. The PNG is the poster of record and the JSON holds
+the forecast data behind it, which the screenshot used to show. The 8 AM **Daily Heat
+Index Log** (hourly monitoring PDF) is a separate job and still runs on the laptop.
+
+### Teams flow recipe (no admin needed, runs as you)
+
+1. Teams → Safety channel → ⋯ → **Workflows** → "Post to a channel when a webhook
+   request is received" → name it **Heat Index** → copy the URL into the GitHub secret
+   `TEAMS_HEAT_WEBHOOK_URL`. The card posts from this step alone.
+2. To also file the records on SharePoint, open the flow in Power Automate and add after
+   the post step (all standard connectors):
+   - **SharePoint → Create file**: site *Operations*, folder
+     `/Shared Documents/Safety/Daily Heat Index/` + `triggerBody()?['archive_folder']`,
+     name `triggerBody()?['metadata_name']`, content `string(triggerBody()?['metadata'])`.
+   - **OneDrive for Business → Upload file from URL**: URL `triggerBody()?['poster_url']`,
+     path `/Heat Index Auto-Post/` + `triggerBody()?['poster_name']`, then
+     **Get file content** and a second **SharePoint → Create file** into the same folder
+     with name `triggerBody()?['poster_name']`.
+   - Optional **Outlook → Send an email (V2)** to supervisors with `poster_url`.
+   Create the new month's folder on SharePoint when a month starts (the laptop job did
+   this too), or add a "Create new folder" step before the file steps.
+   The webhook body also carries `date`, `heat_index` and `zone` for conditions, e.g.
+   email only when `zone` is Red or Black.

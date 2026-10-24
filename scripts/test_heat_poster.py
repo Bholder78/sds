@@ -57,6 +57,15 @@ assert meta["heat_index"] == "70.7" and meta["zone"] == "White", meta
 assert meta["card"]["body"][1]["facts"][2]["value"] == "around 3 PM", meta["card"]["body"][1]
 assert meta["week"] == [] and len(meta["card"]["body"]) == 3
 assert meta["forecast_high_f"] == 72 and meta["peak_temp_f"] == 72 and meta["peak_humidity"] == 38
+# Records: every hour 8 AM-8 PM is kept, the archive folder matches SharePoint, and the
+# webhook body carries both the card and the record for the flow to file.
+assert len(meta["hours"]) == 13 and meta["hours"][0]["time"] == "8:00 AM" and meta["hours"][-1]["time"] == "8:00 PM"
+assert meta["hours"][7] == {"time": "3:00 PM", "temp_f": 72, "humidity": 38, "heat_index": 70.7, "zone": "White", "forecast": "Sunny"}
+assert meta["archive_folder"] == "2026/10. October" and meta["hottest_part_of_day"] == "around 3 PM"
+body = hp.webhook_payload(meta)
+assert body["attachments"][0]["content"] == meta["card"] and body["metadata_name"] == "10.23.26 metadata.json"
+assert body["archive_folder"] == "2026/10. October" and "card" not in body["metadata"] and body["metadata"]["hours"] == meta["hours"]
+assert (a_dir / "latest.json").exists() and json.loads((a_dir / "10.23.26.json").read_text())["heat_index"] == "70.7"
 
 # Scenario B - 10/13/26, Red 91.4, plateau 3-5 PM, Tue so Wed/Thu/Fri follow
 over = {(D(2026, 10, 13), 15): (90, 40), (D(2026, 10, 13), 16): (90, 42), (D(2026, 10, 13), 17): (89, 44),

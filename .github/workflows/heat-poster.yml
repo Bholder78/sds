@@ -10,6 +10,9 @@ on:
     # 17:05 UTC = 12:05 PM CDT (summer) / 11:05 AM CST (winter), Sunday-Thursday,
     # five minutes after the laptop task so the laptop wins while it is still running.
     - cron: "5 17 * * 0-4"
+    # Safety net two hours later: if the first run failed (NWS outage, GitHub delay)
+    # this one builds the poster; if the poster already exists it does nothing.
+    - cron: "5 19 * * 0-4"
   workflow_dispatch:
     inputs:
       date:
