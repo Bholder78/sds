@@ -558,6 +558,7 @@ def build(target: dt.date, out_dir: Path, hourly: dict, daily: dict, force: bool
                   "zone": w["zone"], "high_f": w["high_f"], "short_forecast": w["short_forecast"]} for w in week],
         "hottest_part_of_day": summary["hottest"],
         "hours": summary["hours"],
+        "missing_hours": summary["missing_hours"],
         "poster": png.name,
         "poster_url": poster_url,
         "archive_folder": archive_folder(target),
