@@ -275,11 +275,12 @@ def build_card(summary: dict, week: list[dict], poster_url: str) -> dict:
 def webhook_payload(meta: dict) -> dict:
     """Body sent to the Teams Workflows webhook.
 
-    'attachments' is what the stock "Post to a channel when a webhook request is
-    received" flow posts. The extra top-level fields are there for added flow steps
-    (save the metadata and poster to SharePoint, email the poster, ...).
+    'metadata' is the complete day record, card included, so the flow can write it
+    to SharePoint as '<M.D.YY> metadata.json' - the same file the laptop job drops,
+    which is what the existing "post the card" flow is watching for. 'attachments'
+    is only used if a flow chooses to post the card itself instead.
     """
-    record = {k: v for k, v in meta.items() if k != "card"}
+    record = dict(meta)
     return {
         "type": "message",
         "attachments": [{"contentType": "application/vnd.microsoft.card.adaptive",

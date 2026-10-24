@@ -24,7 +24,7 @@ on:
         type: boolean
         default: false
       post_to_teams:
-        description: "Post the Teams card"
+        description: "Send the record to the Teams flow (files it on SharePoint, which posts the card)"
         type: boolean
         default: true
 
@@ -81,7 +81,7 @@ jobs:
           done
           echo "::error::could not push the poster"; exit 1
 
-      - name: Post Teams card
+      - name: Send the day record to the Teams flow
         if: >-
           steps.build.outputs.built == 'true' && env.SKIP_POST != 'true' &&
           (github.event_name == 'schedule' || inputs.post_to_teams == true)

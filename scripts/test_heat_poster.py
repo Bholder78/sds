@@ -64,7 +64,7 @@ assert meta["hours"][7] == {"time": "3:00 PM", "temp_f": 72, "humidity": 38, "he
 assert meta["archive_folder"] == "2026/10. October" and meta["hottest_part_of_day"] == "around 3 PM"
 body = hp.webhook_payload(meta)
 assert body["attachments"][0]["content"] == meta["card"] and body["metadata_name"] == "10.23.26 metadata.json"
-assert body["archive_folder"] == "2026/10. October" and "card" not in body["metadata"] and body["metadata"]["hours"] == meta["hours"]
+assert body["archive_folder"] == "2026/10. October" and body["metadata"] == meta and body["metadata"]["card"] == meta["card"]
 assert (a_dir / "latest.json").exists() and json.loads((a_dir / "10.23.26.json").read_text())["heat_index"] == "70.7"
 
 # Scenario B - 10/13/26, Red 91.4, plateau 3-5 PM, Tue so Wed/Thu/Fri follow

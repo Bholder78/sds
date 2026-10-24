@@ -86,22 +86,30 @@ saved are not produced in the cloud. The PNG is the poster of record and the JSO
 the forecast data behind it, which the screenshot used to show. The 8 AM **Daily Heat
 Index Log** (hourly monitoring PDF) is a separate job and still runs on the laptop.
 
-### Teams flow recipe (no admin needed, runs as you)
+### Teams flow recipe (no admin needed, runs as you, nothing doubled)
+
+Your existing flow already posts the card whenever a `<M.D.YY> metadata.json` appears in
+`Safety/Daily Heat Index/<year>/<n. Month>/`. Keep it. The cloud job just needs a way to
+drop that same file there, which this one-step flow does:
 
 1. Teams → Safety channel → ⋯ → **Workflows** → "Post to a channel when a webhook
-   request is received" → name it **Heat Index** → copy the URL into the GitHub secret
-   `TEAMS_HEAT_WEBHOOK_URL`. The card posts from this step alone.
-2. To also file the records on SharePoint, open the flow in Power Automate and add after
-   the post step (all standard connectors):
-   - **SharePoint → Create file**: site *Operations*, folder
-     `/Shared Documents/Safety/Daily Heat Index/` + `triggerBody()?['archive_folder']`,
-     name `triggerBody()?['metadata_name']`, content `string(triggerBody()?['metadata'])`.
-   - **OneDrive for Business → Upload file from URL**: URL `triggerBody()?['poster_url']`,
-     path `/Heat Index Auto-Post/` + `triggerBody()?['poster_name']`, then
-     **Get file content** and a second **SharePoint → Create file** into the same folder
-     with name `triggerBody()?['poster_name']`.
-   - Optional **Outlook → Send an email (V2)** to supervisors with `poster_url`.
-   Create the new month's folder on SharePoint when a month starts (the laptop job did
-   this too), or add a "Create new folder" step before the file steps.
-   The webhook body also carries `date`, `heat_index` and `zone` for conditions, e.g.
-   email only when `zone` is Red or Black.
+   request is received" → name it **Heat Index record**.
+2. Open it in Power Automate and **delete the "Post card" step** (otherwise you get a
+   second card). Add **SharePoint → Create file**: site *Operations*, folder
+   `/Shared Documents/Safety/Daily Heat Index/` + `triggerBody()?['archive_folder']`,
+   name `triggerBody()?['metadata_name']`, content `string(triggerBody()?['metadata'])`.
+3. Copy the flow's URL into the GitHub secret `TEAMS_HEAT_WEBHOOK_URL`
+   (repo → Settings → Secrets and variables → Actions).
+
+Result: the cloud job files the JSON, your existing flow sees it and posts the card
+exactly as it does for the laptop. One poster, one card, one record.
+
+Optional extras in the same flow: **OneDrive for Business → Upload file from URL**
+(`triggerBody()?['poster_url']`) followed by **Get file content** and a second
+**SharePoint → Create file** named `triggerBody()?['poster_name']` to keep the PNG on
+SharePoint too; or **Outlook → Send an email (V2)** when `triggerBody()?['zone']` is
+Red or Black. Create the new month's folder on SharePoint when a month starts (the
+laptop job did this too), or add a "Create new folder" step first.
+
+Before the laptop job is retired, check that its flow's trigger watches the whole
+Daily Heat Index library (subfolders included) and not a fixed month folder.
