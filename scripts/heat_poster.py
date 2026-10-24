@@ -387,6 +387,20 @@ def draw_rich(draw, x, y, max_w, segments, line_h, start_x=None):
     return y + line_h
 
 
+def _wrap_lines(draw, text: str, font, max_w: float) -> list[str]:
+    lines, cur = [], ""
+    for word in text.split():
+        trial = f"{cur} {word}".strip()
+        if cur and _text_w(draw, trial, font) > max_w:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = trial
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def _centered(draw, box, text, font, fill):
     x0, y0, x1, y1 = box
     bbox = draw.textbbox((0, 0), text, font=font)
@@ -450,20 +464,25 @@ def render_poster(summary: dict, out_path: Path) -> None:
     d.rectangle((584, 430, 596, 442), fill=INK)
     draw_rich(d, 583, 425, 420, [("Black (115+)", f_lab, INK), (" " + ZONE_ACTION["Black"], f_txt, INK)], lh, start_x=604)
 
-    # Today's heat response (box grows with the text; a Black day needs three lines)
+    # Today's heat response. The box keeps its normal place (660-742) for one or two
+    # lines of text; a Black day needs three, so the box grows upward into the white
+    # space above it and keeps clear of the two boxes at y=755.
     f_h, f_body, body_lh = _font("b", 17), _font("r", 15), 18
-    body_end = draw_rich(d, 132, 692, 850, [(ZONE_ACTION[zone], f_body, INK)], body_lh)
-    bottom = max(742, min(752, body_end + 4))
-    d.rectangle((122, 660, 995, bottom), outline=(34, 34, 34), width=2)
+    lines = _wrap_lines(d, ZONE_ACTION[zone], f_body, 850)
+    box_h = max(82, 32 + len(lines) * body_lh + 10)
+    top = min(660, 746 - box_h)
+    d.rectangle((122, top, 995, top + box_h), outline=(34, 34, 34), width=2)
     head = "TODAY'S HEAT RESPONSE — "
-    d.text((132, 667), head, font=f_h, fill=INK)
+    d.text((132, top + 7), head, font=f_h, fill=INK)
     sx = 132 + _text_w(d, head, f_h)
-    sq = (sx, 671, sx + 13, 684)
+    sq = (sx, top + 11, sx + 13, top + 24)
     if zone == "White":
         d.rectangle(sq, outline=INK, width=1)
     else:
         d.rectangle(sq, fill=RED if zone == "Red" else INK)
-    d.text((sx + 20, 667), f"{zone.upper()}  (Heat Index {hi_txt})", font=f_h, fill=INK)
+    d.text((sx + 20, top + 7), f"{zone.upper()}  (Heat Index {hi_txt})", font=f_h, fill=INK)
+    for i, line in enumerate(lines):
+        d.text((132, top + 32 + i * body_lh), line, font=f_body, fill=INK)
 
     # Heat exhaustion / heat stroke boxes
     d.rectangle((122, 755, 545, 900), fill=(255, 248, 225), outline=GOLD_BORDER, width=2)
