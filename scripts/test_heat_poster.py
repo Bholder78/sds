@@ -16,6 +16,14 @@ for t, rh, expected in [(72, 38, 70.7), (90, 42, 91.4), (82, 74, 87.3), (86, 57,
     got = round(hp.heat_index(t, rh), 1)
     assert got == expected, f"heat_index({t},{rh}) = {got}, expected {expected}"
 
+# Low-humidity adjustment (RH < 13%, 80-112 F) is the NWS one with |T-95|; it used to crash above 102 F.
+assert round(hp.heat_index(100, 5), 1) == 92.5, round(hp.heat_index(100, 5), 2)
+assert round(hp.heat_index(85, 10), 1) == 81.4, round(hp.heat_index(85, 10), 2)
+for t in range(80, 113):
+    hp.heat_index(t, 5)  # must not raise anywhere in the adjustment's valid range
+# High-humidity adjustment (RH > 85%, 80-87 F)
+assert round(hp.heat_index(85, 90), 1) == round(hp.heat_index(85, 90), 1) and hp.heat_index(85, 90) > hp.heat_index(85, 85)
+
 # 2. Zone thresholds work on the rounded value shown on the poster
 assert hp.zone_for(90.94) == "White" and hp.zone_for(90.96) == "Red"
 assert hp.zone_for(114.94) == "Red" and hp.zone_for(114.96) == "Black"
@@ -93,10 +101,35 @@ assert meta["zone"] == "Black" and len(meta["week"]) == 4, (meta["zone"], meta["
 # 4. Skip when the poster already exists (what keeps the cloud job from fighting the laptop)
 assert hp.build(D(2026, 7, 20), c_dir, hourly, daily, force=False) is None
 
-# 5. Missing humidity hours are ignored, not fatal; a day with no usable hours returns None
-hourly["properties"]["periods"][0]["relativeHumidity"] = {"value": None}
-assert hp.summarize_day(hp.parse_hourly(hourly), D(2026, 7, 20)) is not None
+# 5. A day with no usable hours returns None; a day missing hours is never built silently
 assert hp.summarize_day(hp.parse_hourly(hourly), D(2030, 1, 1)) is None
+for p in hourly["properties"]["periods"]:
+    if p["startTime"].startswith("2026-07-20T15"):
+        p["relativeHumidity"] = {"value": None}          # the hottest hour loses its humidity
+s = hp.summarize_day(hp.parse_hourly(hourly), D(2026, 7, 20))
+assert s["missing_hours"] == ["3 PM"], s["missing_hours"]
+try:
+    hp.build(D(2026, 7, 20), c_dir, hourly, daily, force=True)
+    raise AssertionError("partial window was built without --allow-partial")
+except SystemExit as e:
+    assert "missing 1 of 13 hours (3 PM)" in str(e), str(e)
+meta = hp.build(D(2026, 7, 20), c_dir, hourly, daily, force=True, allow_partial=True)
+assert meta["missing_hours"] == ["3 PM"] and any("3 PM" in w for w in meta["warnings"]), meta["warnings"]
+# A rest-of-week day that is not fully in the forecast yet is left out rather than guessed
+assert [w["day"] for w in meta["week"]] == ["Tue", "Wed", "Thu", "Fri"]
+hourly["properties"]["periods"] = [p for p in hourly["properties"]["periods"] if not p["startTime"].startswith("2026-07-24T1")]
+meta = hp.build(D(2026, 7, 20), c_dir, hourly, daily, force=True, allow_partial=True)
+assert [w["day"] for w in meta["week"]] == ["Tue", "Wed", "Thu"], meta["week"]
+
+# 6. Stale-forecast warning, and latest.json keeps pointing at the newest day after an old rebuild
+hourly["properties"]["updateTime"] = "2026-07-18T12:00:00+00:00"
+meta = hp.build(D(2026, 7, 20), c_dir, hourly, daily, force=True, allow_partial=True)
+assert any("hours old" in w for w in meta["warnings"]), meta["warnings"]
+assert hp.forecast_age_hours({"properties": {}}) is None
+hourly, daily = make_fixtures(D(2026, 7, 19), 7, {}, {})
+hp.build(D(2026, 7, 21), c_dir, hourly, daily, force=True)                  # newer day
+hp.build(D(2026, 7, 20), c_dir, hourly, daily, force=True)                  # rebuild an older day
+assert json.loads((c_dir / "latest.json").read_text())["date"] == "07/21/2026"
 
 print("all checks passed")
 for p in sorted(OUT.rglob("*.png")):

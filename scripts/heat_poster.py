@@ -81,7 +81,7 @@ def heat_index(temp_f: float, rh: float) -> float:
           - 0.00683783 * t * t - 0.05481717 * r * r + 0.00122874 * t * t * r
           + 0.00085282 * t * r * r - 0.00000199 * t * t * r * r)
     if r < 13 and 80 <= t <= 112:
-        hi -= ((13 - r) / 4.0) * math.sqrt((17 - abs(t - 85)) / 17.0)
+        hi -= ((13 - r) / 4.0) * math.sqrt((17 - abs(t - 95)) / 17.0)
     elif r > 85 and 80 <= t <= 87:
         hi += ((r - 85) / 10.0) * ((87 - t) / 5.0)
     return hi
@@ -122,16 +122,33 @@ def fetch_json(url: str, retries: int = 4) -> dict:
     for attempt in range(retries):
         try:
             r = requests.get(url, headers=headers, timeout=40)
-            if r.status_code >= 500:
-                raise RuntimeError(f"NWS {r.status_code}: {r.text[:200]}")
-            r.raise_for_status()
+            if r.status_code == 429 or r.status_code >= 500:
+                raise RuntimeError(f"NWS {r.status_code}: {r.text[:200]}")   # transient, retry
+            if r.status_code >= 400:
+                raise SystemExit(f"NWS {r.status_code} for {url}: {r.text[:200]}")  # permanent, stop now
             return r.json()
-        except Exception as e:  # noqa: BLE001 - we retry on anything transient
+        except SystemExit:
+            raise
+        except Exception as e:  # noqa: BLE001 - timeouts, connection errors, 5xx
             last_err = e
-            wait = 15 * (attempt + 1)
-            print(f"NWS fetch failed ({e}); retrying in {wait}s", file=sys.stderr)
-            time.sleep(wait)
+            if attempt < retries - 1:
+                wait = 15 * (attempt + 1)
+                print(f"NWS fetch failed ({e}); retrying in {wait}s", file=sys.stderr)
+                time.sleep(wait)
     raise SystemExit(f"NWS fetch failed after {retries} attempts: {last_err}")
+
+
+def forecast_age_hours(data: dict) -> float | None:
+    """Hours since NWS generated this forecast, or None if the response does not say."""
+    p = (data or {}).get("properties", {})
+    stamp = p.get("updateTime") or p.get("generatedAt") or p.get("updated")
+    if not stamp:
+        return None
+    try:
+        issued = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return (dt.datetime.now(dt.timezone.utc) - issued).total_seconds() / 3600.0
 
 
 def parse_hourly(data: dict) -> list[dict]:
@@ -175,6 +192,9 @@ def summarize_day(hours: list[dict], date: dt.date, daily: dict[dt.date, dict] |
               and h["rh"] is not None]
     if not window:
         return None
+    # Hours the forecast did not give us (not in the response, or humidity missing).
+    # The caller decides whether a partial window is acceptable; it is never silent.
+    missing = sorted(set(range(WINDOW_START_HOUR, WINDOW_END_HOUR + 1)) - {h["time"].hour for h in window})
     for h in window:
         h["hi"] = heat_index(h["temp"], h["rh"])
     peak = max(window, key=lambda h: h["hi"])           # first hour wins a tie
@@ -206,6 +226,7 @@ def summarize_day(hours: list[dict], date: dt.date, daily: dict[dt.date, dict] |
         "hottest": hottest,
         "forecast_high_f": high_f,
         "short_forecast": short,
+        "missing_hours": [hour_label(h) for h in missing],
         # Every hour that went into the decision, kept for the record.
         "hours": [{"time": h["time"].strftime("%I:%M %p").lstrip("0"), "temp_f": int(round(h["temp"])),
                    "humidity": int(round(h["rh"])), "heat_index": round(h["hi"], 1),
@@ -304,14 +325,18 @@ def post_card(meta: dict, webhook_url: str, retries: int = 3) -> None:
     for attempt in range(retries):
         try:
             r = requests.post(webhook_url, json=payload, timeout=30)
-            if r.status_code >= 500:
+            if r.status_code == 429 or r.status_code >= 500:
                 raise RuntimeError(f"webhook {r.status_code}: {r.text[:200]}")
-            r.raise_for_status()
-            print(f"Teams card posted ({r.status_code}).")
+            if r.status_code >= 400:
+                raise SystemExit(f"Teams flow rejected the request ({r.status_code}): {r.text[:200]}")
+            print(f"Sent to the Teams flow ({r.status_code}).")
             return
+        except SystemExit:
+            raise
         except Exception as e:  # noqa: BLE001
             last = e
-            time.sleep(10 * (attempt + 1))
+            if attempt < retries - 1:
+                time.sleep(10 * (attempt + 1))
     raise SystemExit(f"Teams post failed after {retries} attempts: {last}")
 
 
@@ -471,7 +496,11 @@ def gh_output(**kv) -> None:
             fh.write(f"{k}={v}\n")
 
 
-def build(target: dt.date, out_dir: Path, hourly: dict, daily: dict, force: bool) -> dict | None:
+STALE_FORECAST_HOURS = 12.0
+
+
+def build(target: dt.date, out_dir: Path, hourly: dict, daily: dict, force: bool,
+          allow_partial: bool = False) -> dict | None:
     png = out_dir / f"{short_date(target)}.png"
     meta_path = out_dir / f"{short_date(target)}.json"
     if png.exists() and not force:
@@ -485,11 +514,28 @@ def build(target: dt.date, out_dir: Path, hourly: dict, daily: dict, force: bool
     if summary is None:
         raise SystemExit(f"NWS hourly forecast has no data for {target} between "
                          f"{hour_label(WINDOW_START_HOUR)} and {hour_label(WINDOW_END_HOUR)}.")
+    warnings: list[str] = []
+    if summary["missing_hours"]:
+        msg = (f"forecast for {target} is missing {len(summary['missing_hours'])} of 13 hours "
+               f"({', '.join(summary['missing_hours'])}); the peak may be understated")
+        if not allow_partial:
+            raise SystemExit(f"Refusing to build: {msg}. Re-run with --allow-partial to build anyway "
+                             f"(the record will say which hours were missing).")
+        print(f"WARNING: {msg}", file=sys.stderr)
+        warnings.append(msg)
+    age = forecast_age_hours(hourly)
+    if age is not None and age > STALE_FORECAST_HOURS:
+        msg = f"NWS hourly forecast is {age:.0f} hours old (issued {hourly['properties'].get('updateTime') or hourly['properties'].get('generatedAt')})"
+        print(f"WARNING: {msg}", file=sys.stderr)
+        warnings.append(msg)
 
     week = []
     for wd in rest_of_week_dates(target):
         s = summarize_day(hours, wd, days)
         if s is None:
+            continue
+        if s["missing_hours"]:
+            print(f"Rest of week: skipping {wd} ({len(s['missing_hours'])} hours not in the forecast yet).")
             continue
         week.append({"date": wd, "day": wd.strftime("%a"), "heat_index": s["heat_index"],
                      "zone": s["zone"], "high_f": s["forecast_high_f"], "short_forecast": s["short_forecast"]})
@@ -518,12 +564,20 @@ def build(target: dt.date, out_dir: Path, hourly: dict, daily: dict, force: bool
         "method": (f"Peak NWS heat index, {hour_label(WINDOW_START_HOUR)} to {hour_label(WINDOW_END_HOUR)}, "
                    f"from the hourly forecast for {LOCATION}. Zones: White 90 and below, Red 91-114, Black 115+."),
         "source": nws_provenance(hourly, daily),
+        "warnings": warnings,
         "card": card,
         "generated_at": dt.datetime.now(TZ).isoformat(timespec="seconds"),
         "generated_by": "github-actions/heat-poster",
     }
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    (out_dir / "latest.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    # latest.json always points at the newest poster date, even if an older day is rebuilt.
+    latest = out_dir / "latest.json"
+    try:
+        latest_date = dt.datetime.strptime(json.loads(latest.read_text(encoding="utf-8"))["date"], "%m/%d/%Y").date()
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        latest_date = None
+    if latest_date is None or target >= latest_date:
+        latest.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"Built {png.name}: heat index {meta['heat_index']} ({meta['zone']}), hottest {summary['hottest']}")
     gh_output(built="true", png=str(png), json=str(meta_path), date_short=short_date(target),
               zone=meta["zone"], heat_index=meta["heat_index"])
@@ -535,6 +589,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--date", help="poster date YYYY-MM-DD (default: tomorrow, America/Chicago)")
     ap.add_argument("--out", default="heat-posters", help="output folder")
     ap.add_argument("--force", action="store_true", help="rebuild even if the PNG exists")
+    ap.add_argument("--allow-partial", action="store_true",
+                    help="build even if some 8 AM-8 PM hours are missing from the forecast (recorded in the JSON)")
     ap.add_argument("--hourly-json", help="saved NWS hourly forecast (offline test)")
     ap.add_argument("--daily-json", help="saved NWS daily forecast (offline test)")
     ap.add_argument("--post", action="store_true", help="post the Teams card after building")
@@ -564,7 +620,7 @@ def main(argv: list[str] | None = None) -> int:
             print("Daily forecast unavailable; using hourly data for the high/summary.", file=sys.stderr)
             daily = {}
 
-    meta = build(target, Path(args.out), hourly, daily, args.force)
+    meta = build(target, Path(args.out), hourly, daily, args.force, allow_partial=args.allow_partial)
     if meta and args.post:
         url = os.environ.get("TEAMS_HEAT_WEBHOOK_URL", "").strip()
         if url:

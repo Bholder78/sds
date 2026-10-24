@@ -7,12 +7,13 @@ name: Daily heat poster
 
 on:
   schedule:
-    # 17:05 UTC = 12:05 PM CDT (summer) / 11:05 AM CST (winter), Sunday-Thursday,
-    # five minutes after the laptop task so the laptop wins while it is still running.
-    - cron: "5 17 * * 0-4"
+    # 18:05 UTC = 12:05 PM CST (winter) / 1:05 PM CDT (summer), Sunday-Thursday.
+    # Always AFTER the laptop's 12:00 PM local run, in both halves of the year, so the
+    # laptop wins while it is still running and this job finds the poster already there.
+    - cron: "5 18 * * 0-4"
     # Safety net two hours later: if the first run failed (NWS outage, GitHub delay)
     # this one builds the poster; if the poster already exists it does nothing.
-    - cron: "5 19 * * 0-4"
+    - cron: "5 20 * * 0-4"
   workflow_dispatch:
     inputs:
       date:
@@ -21,6 +22,10 @@ on:
         default: ""
       force:
         description: "Rebuild even if the poster already exists"
+        type: boolean
+        default: false
+      allow_partial:
+        description: "Build even if the forecast is missing some 8 AM-8 PM hours (recorded in the JSON)"
         type: boolean
         default: false
       post_to_teams:
@@ -52,11 +57,20 @@ jobs:
         id: build
         env:
           NWS_USER_AGENT: "fibertech-heat-poster (github.com/${{ github.repository }})"
+          INPUT_DATE: ${{ inputs.date }}
+          INPUT_FORCE: ${{ inputs.force }}
+          INPUT_ALLOW_PARTIAL: ${{ inputs.allow_partial }}
         run: |
-          args=""
-          if [ -n "${{ inputs.date }}" ]; then args="$args --date ${{ inputs.date }}"; fi
-          if [ "${{ inputs.force }}" = "true" ]; then args="$args --force"; fi
-          python scripts/heat_poster.py --out heat-posters $args
+          args=()
+          if [ -n "$INPUT_DATE" ]; then
+            if [[ ! "$INPUT_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "::error::date must look like 2026-10-27"; exit 1
+            fi
+            args+=(--date "$INPUT_DATE")
+          fi
+          [ "$INPUT_FORCE" = "true" ] && args+=(--force)
+          [ "$INPUT_ALLOW_PARTIAL" = "true" ] && args+=(--allow-partial)
+          python scripts/heat_poster.py --out heat-posters "${args[@]}"
 
       - name: Commit poster
         if: steps.build.outputs.built == 'true'

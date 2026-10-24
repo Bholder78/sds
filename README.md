@@ -44,7 +44,7 @@ commit. The robot never overwrites your manual edits.
 
 ## Daily Heat Index poster (runs in the cloud)
 
-Every Sunday–Thursday at about noon, GitHub builds **tomorrow's** Daily Heat Index
+Every Sunday–Thursday just after noon Central (12:05 PM in winter, 1:05 PM in summer), GitHub builds **tomorrow's** Daily Heat Index
 poster from the National Weather Service forecast for Elberfeld, commits it to
 `heat-posters/`, and posts the Teams card. Nothing has to be switched on at the plant.
 
@@ -60,7 +60,9 @@ How the number is picked: NWS hourly forecast, heat index for each hour from 8 A
 
 **Run it by hand:** GitHub → Actions → "Daily heat poster" → Run workflow. Leave the
 date blank for tomorrow, or type one (YYYY-MM-DD). Tick "force" to rebuild a day that
-already exists.
+already exists. The job refuses to build from a forecast that is missing any of the 13
+hours and says which ones; tick "allow_partial" only for a deliberate backfill, and the
+JSON will record the gap.
 
 **Teams card:** add a repository secret named `TEAMS_HEAT_WEBHOOK_URL` (Settings →
 Secrets and variables → Actions) holding the URL from a Teams workflow
@@ -69,7 +71,7 @@ poster still builds and commits; only the card is skipped.
 
 **If the laptop job also runs:** the cloud job starts five minutes later and skips any
 date that already has a poster, so there are never two posters or two cards. A second
-run at 2 PM Central rebuilds the day only if the first run failed.
+run two hours later rebuilds the day only if the first run failed.
 
 ### Records
 
