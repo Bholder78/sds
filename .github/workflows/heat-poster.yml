@@ -1,0 +1,96 @@
+name: Daily heat poster
+
+# Builds TOMORROW's Daily Heat Index poster from the NWS forecast, commits it to
+# heat-posters/, and posts the Teams card. Runs on GitHub's servers, so no
+# laptop or on-site PC has to be on. If the poster for that date already exists
+# (for example the laptop job built it first), the run does nothing.
+
+on:
+  schedule:
+    # 17:05 UTC = 12:05 PM CDT (summer) / 11:05 AM CST (winter), Sunday-Thursday,
+    # five minutes after the laptop task so the laptop wins while it is still running.
+    - cron: "5 17 * * 0-4"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Poster date, YYYY-MM-DD (blank = tomorrow)"
+        required: false
+        default: ""
+      force:
+        description: "Rebuild even if the poster already exists"
+        type: boolean
+        default: false
+      post_to_teams:
+        description: "Post the Teams card"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: heat-poster
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python libraries
+        run: pip install --quiet requests pillow
+
+      - name: Build poster from the NWS forecast
+        id: build
+        env:
+          NWS_USER_AGENT: "fibertech-heat-poster (github.com/${{ github.repository }})"
+        run: |
+          args=""
+          if [ -n "${{ inputs.date }}" ]; then args="$args --date ${{ inputs.date }}"; fi
+          if [ "${{ inputs.force }}" = "true" ]; then args="$args --force"; fi
+          python scripts/heat_poster.py --out heat-posters $args
+
+      - name: Commit poster
+        if: steps.build.outputs.built == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add heat-posters
+          git commit -m "Heat poster ${{ steps.build.outputs.date_short }}"
+          png="heat-posters/${{ steps.build.outputs.date_short }}.png"
+          for i in 1 2 3 4; do
+            if git pull --rebase && git push; then exit 0; fi
+            # Someone else (the laptop job) may have pushed the same poster meanwhile.
+            git rebase --abort 2>/dev/null || true
+            git fetch origin "${GITHUB_REF_NAME}"
+            if git cat-file -e "origin/${GITHUB_REF_NAME}:${png}" 2>/dev/null; then
+              echo "::notice::$png was already pushed by another job; keeping that copy."
+              git reset --hard "origin/${GITHUB_REF_NAME}"
+              echo "SKIP_POST=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep $((i * 15))
+          done
+          echo "::error::could not push the poster"; exit 1
+
+      - name: Post Teams card
+        if: >-
+          steps.build.outputs.built == 'true' && env.SKIP_POST != 'true' &&
+          (github.event_name == 'schedule' || inputs.post_to_teams == true)
+        env:
+          TEAMS_HEAT_WEBHOOK_URL: ${{ secrets.TEAMS_HEAT_WEBHOOK_URL }}
+        run: python scripts/heat_poster.py --post-json "${{ steps.build.outputs.json }}"
+
+      - name: Keep a copy with the run
+        if: steps.build.outputs.built == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: heat-poster-${{ steps.build.outputs.date_short }}
+          path: |
+            ${{ steps.build.outputs.png }}
+            ${{ steps.build.outputs.json }}

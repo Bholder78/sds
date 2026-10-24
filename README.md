@@ -41,3 +41,31 @@ commit. The robot never overwrites your manual edits.
 | `data/sds_data.json` | The register (auto-built, manually correctable) |
 | `scripts/build_index.py` | The robot that reads new PDFs |
 | `.github/workflows/build.yml` | Tells GitHub to run the robot on every upload |
+
+## Daily Heat Index poster (runs in the cloud)
+
+Every Sunday–Thursday at about noon, GitHub builds **tomorrow's** Daily Heat Index
+poster from the National Weather Service forecast for Elberfeld, commits it to
+`heat-posters/`, and posts the Teams card. Nothing has to be switched on at the plant.
+
+| What | Where |
+|---|---|
+| The poster | `heat-posters/<M.D.YY>.png` (e.g. `10.23.26.png`) |
+| The numbers behind it | `heat-posters/<M.D.YY>.json`, and `heat-posters/latest.json` for the newest day |
+| The job | `.github/workflows/heat-poster.yml` (schedule + "Run workflow" button) |
+| The code | `scripts/heat_poster.py` (offline checks: `python scripts/test_heat_poster.py`) |
+
+How the number is picked: NWS hourly forecast, heat index for each hour from 8 AM to
+8 PM, highest one wins. Zones: White 90 and below, Red 91–114, Black 115 and up.
+
+**Run it by hand:** GitHub → Actions → "Daily heat poster" → Run workflow. Leave the
+date blank for tomorrow, or type one (YYYY-MM-DD). Tick "force" to rebuild a day that
+already exists.
+
+**Teams card:** add a repository secret named `TEAMS_HEAT_WEBHOOK_URL` (Settings →
+Secrets and variables → Actions) holding the URL from a Teams workflow
+"Post to a channel when a webhook request is received". Without the secret the
+poster still builds and commits; only the card is skipped.
+
+**If the laptop job also runs:** the cloud job starts five minutes later and skips any
+date that already has a poster, so there are never two posters or two cards.
